@@ -1,0 +1,26 @@
+# VCS / окружения
+.git
+.gitignore
+.venv
+venv
+env
+
+# Python-кеши
+__pycache__
+*.pyc
+*.pyo
+
+# Секреты и локальная БД (создаются в контейнере / монтируются)
+.env
+.env.*
+*.db
+fitfood.db
+
+# Прочее, что не нужно в образе
+notebooks/*.ipynb
+reports
+*.log
+.DS_Store
+.vscode
+.idea
+node_modules

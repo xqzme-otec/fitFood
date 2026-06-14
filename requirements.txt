@@ -5,8 +5,8 @@ python-multipart==0.0.32
 
 # --- БД / ORM ---
 SQLAlchemy==2.0.50
-# Для PostgreSQL раскомментируйте:
-# psycopg2-binary==2.9.9
+# Драйвер PostgreSQL (используется в Docker / проде; для SQLite не нужен).
+psycopg2-binary==2.9.10
 
 # --- Валидация / конфиг ---
 pydantic==2.13.4
