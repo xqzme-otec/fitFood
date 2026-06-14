@@ -8,7 +8,52 @@
 мок-режиме, БД по умолчанию — SQLite. ML-классификатор категорий использует
 готовую модель `notebooks/models/xgb_model.pkl`.
 
-## Быстрый старт
+## Запуск в Docker (рекомендуется для деплоя)
+
+Поднимает **API + PostgreSQL** одной командой. Нужен только установленный
+Docker (Docker Desktop / Docker Engine с плагином Compose).
+
+```bash
+# 1. (опционально, но желательно для прода) задать свой секрет и ключи
+export SECRET_KEY="$(openssl rand -hex 32)"
+# export LLM_PROVIDER=openai OPENAI_API_KEY=sk-...   # иначе работает mock
+
+# 2. собрать образ и запустить
+docker compose up --build -d
+
+# 3. проверить, что поднялось
+curl http://127.0.0.1:8000/health
+```
+
+- **Веб-интерфейс (SPA):** <http://127.0.0.1:8000/>
+- **Swagger UI (API):** <http://127.0.0.1:8000/docs>
+
+Управление:
+```bash
+docker compose logs -f app     # логи приложения
+docker compose down            # остановить (данные БД сохраняются в томе pgdata)
+docker compose down -v         # остановить и удалить данные БД
+docker compose up --build -d   # пересобрать после изменений в коде
+```
+
+Что происходит внутри Compose:
+- сервис `db` — PostgreSQL 16 с healthcheck и постоянным томом `pgdata`;
+- сервис `app` — образ из `Dockerfile`, стартует только после готовности БД,
+  подключается к ней через `DATABASE_URL`;
+- при первом старте автоматически создаются таблицы и наполняется каталог
+  (30+ базовых продуктов, 8 блюд и ~350 позиций из CSV).
+
+Конфигурация задаётся переменными окружения (см. `docker-compose.yml`):
+`SECRET_KEY`, `POSTGRES_PASSWORD`, `LLM_PROVIDER`, `OPENAI_API_KEY`,
+`ACCESS_TOKEN_EXPIRE_MINUTES`, `SEED_PRODUCTS_LIMIT` — все имеют дефолты.
+
+> Один контейнер на SQLite (без PostgreSQL):
+> ```bash
+> docker build -t fitfood .
+> docker run -p 8000:8000 -v fitfood_db:/app fitfood
+> ```
+
+## Локальный запуск без Docker
 
 ```bash
 python -m venv venv
@@ -19,10 +64,8 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-- **Веб-интерфейс (SPA):** <http://127.0.0.1:8000/>
-- **Swagger UI (API):** <http://127.0.0.1:8000/docs>
-
-При первом запуске автоматически:
+По умолчанию БД — **SQLite** (файл `fitfood.db` рядом с проектом), внешние ключи
+не нужны. При первом запуске автоматически:
 - создаются таблицы (`Base.metadata.create_all`);
 - наполняется каталог: 30+ базовых продуктов, 8 блюд и ~350 позиций из
   `data/fitfood_products_full_augmented.csv`.
@@ -95,6 +138,10 @@ app/
   data/seed.py         # импорт продуктов/блюд
 data/                  # CSV-каталоги
 notebooks/models/      # обученные ML-артефакты (xgb, tfidf, label encoder)
+frontend/              # SPA (vanilla JS), раздаётся самим FastAPI
+Dockerfile             # образ бэкенда (python:3.12-slim + libgomp1 для xgboost)
+docker-compose.yml     # app + PostgreSQL (деплой одной командой)
+.dockerignore          # что не попадает в образ
 ```
 
 ## Основные эндпоинты
@@ -158,11 +205,14 @@ notebooks/models/      # обученные ML-артефакты (xgb, tfidf, l
 `app/services/llm.py` (`_openai_shelf_life`, `_openai_parse_receipt`) и реальный
 OCR в `app/services/ocr.py:image_to_text` (например, `pytesseract`).
 
-## Переход на PostgreSQL
+## PostgreSQL вне Docker
 
-1. `pip install psycopg2-binary`
+В Docker PostgreSQL поднимается автоматически (`docker compose up`). Если нужен
+свой инстанс при локальном запуске:
+
+1. `psycopg2-binary` уже есть в `requirements.txt`.
 2. В `.env`: `DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/fitfood`
-3. Миграции через Alembic: `alembic init alembic`, в `env.py` импортировать
-   `app.models` и `Base.metadata`, затем `alembic revision --autogenerate && alembic upgrade head`.
-   (Для разработки на SQLite таблицы создаются автоматически при старте.)
-```
+3. Таблицы создаются автоматически при старте (`Base.metadata.create_all`).
+   Для версионируемых схем подключите Alembic: `alembic init alembic`, в `env.py`
+   импортируйте `app.models` и `Base.metadata`, затем
+   `alembic revision --autogenerate && alembic upgrade head`.
