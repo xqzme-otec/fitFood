@@ -10,6 +10,8 @@
   const FRIDGE_PAGE_SIZE = 15;
   let fridgePage = 0;        // сколько страниц уже отрисовано
   let fridgeObserver = null; // IntersectionObserver для infinite scroll
+  let fridgeSort = "added_desc"; // текущая сортировка
+  let fridgeOnlyKbju = false;    // фильтр «только с КБЖУ»
 
   function todayStr() { return new Date().toISOString().slice(0, 10); }
   function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
@@ -445,17 +447,62 @@
 
     const ALL_CAT = "__all__";
     const allItems = groups.flatMap((g) => g.items);
-    // Виртуальная группа «Все» + реальные группы
     const allGroups = [{ category: ALL_CAT, items: allItems }, ...groups];
 
-    // Активная вкладка (если прежняя пропала — «Все»)
     if (!fridgeCat || !allGroups.some((g) => g.category === fridgeCat)) fridgeCat = ALL_CAT;
-    const active = allGroups.find((g) => g.category === fridgeCat) || allGroups[0];
+
+    const SORT_OPTIONS = [
+      ["added_desc",   "Дата добавления (новые)"],
+      ["added_asc",    "Дата добавления (старые)"],
+      ["expiry_asc",   "Срок годности (раньше истекает)"],
+      ["expiry_desc",  "Срок годности (позже истекает)"],
+      ["calories_asc", "Калорийность (возрастание)"],
+      ["calories_desc","Калорийность (убывание)"],
+      ["qty_asc",      "Количество (возрастание)"],
+      ["qty_desc",     "Количество (убывание)"],
+    ];
+
+    function applyFiltersAndSort(items) {
+      let result = fridgeOnlyKbju ? items.filter((it) => it.kbju_100g) : [...items];
+      result.sort((a, b) => {
+        switch (fridgeSort) {
+          case "added_asc":    return (a.added_at || "") > (b.added_at || "") ? 1 : -1;
+          case "added_desc":   return (a.added_at || "") < (b.added_at || "") ? 1 : -1;
+          case "expiry_asc": {
+            const da = a.expiry_date ? new Date(a.expiry_date) : new Date("9999-12-31");
+            const db = b.expiry_date ? new Date(b.expiry_date) : new Date("9999-12-31");
+            return da - db;
+          }
+          case "expiry_desc": {
+            const da = a.expiry_date ? new Date(a.expiry_date) : new Date("0000-01-01");
+            const db = b.expiry_date ? new Date(b.expiry_date) : new Date("0000-01-01");
+            return db - da;
+          }
+          case "calories_asc":  return (a.kbju_100g?.calories || 0) - (b.kbju_100g?.calories || 0);
+          case "calories_desc": return (b.kbju_100g?.calories || 0) - (a.kbju_100g?.calories || 0);
+          case "qty_asc":  return a.quantity - b.quantity;
+          case "qty_desc": return b.quantity - a.quantity;
+          default: return 0;
+        }
+      });
+      return result;
+    }
 
     wrap.innerHTML = `
       <div class="tabs" id="cat-tabs"></div>
-      <div class="grid grid-meals" id="cat-items" style="margin-top:18px"></div>
+      <div class="fridge-toolbar" id="fridge-toolbar" style="display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer">
+          <input type="checkbox" id="filter-kbju" ${fridgeOnlyKbju ? "checked" : ""} style="cursor:pointer">
+          Только с КБЖУ
+        </label>
+        <select class="select" id="sort-select" style="min-width:220px;font-size:14px">
+          ${SORT_OPTIONS.map(([v, l]) => `<option value="${v}" ${fridgeSort === v ? "selected" : ""}>${l}</option>`).join("")}
+        </select>
+        <span class="muted" id="filter-count" style="font-size:13px"></span>
+      </div>
+      <div class="grid grid-meals" id="cat-items" style="margin-top:14px"></div>
       <div id="fridge-sentinel" style="height:1px"></div>`;
+
     const tabs = $("#cat-tabs", wrap);
     tabs.innerHTML = allGroups.map((g) => {
       const label = g.category === ALL_CAT ? "Все" : g.category;
@@ -469,31 +516,62 @@
       viewFridge();
     }));
 
-    fridgePage = 0;
-    const grid = $("#cat-items", wrap);
-    const sentinel = $("#fridge-sentinel", wrap);
-    const items = active.items;
+    $("#filter-kbju", wrap).addEventListener("change", (e) => {
+      fridgeOnlyKbju = e.target.checked;
+      rerenderItems();
+    });
+    $("#sort-select", wrap).addEventListener("change", (e) => {
+      fridgeSort = e.target.value;
+      rerenderItems();
+    });
 
-    function renderNextPage() {
-      const start = fridgePage * FRIDGE_PAGE_SIZE;
-      const slice = items.slice(start, start + FRIDGE_PAGE_SIZE);
-      slice.forEach((it) => grid.appendChild(fridgeCard(it)));
-      fridgePage++;
-      if (fridgePage * FRIDGE_PAGE_SIZE >= items.length) {
-        if (fridgeObserver) { fridgeObserver.disconnect(); fridgeObserver = null; }
-        sentinel.remove();
+    function rerenderItems() {
+      fridgePage = 0;
+      if (fridgeObserver) { fridgeObserver.disconnect(); fridgeObserver = null; }
+      const grid = $("#cat-items", wrap);
+      grid.innerHTML = "";
+      // восстановить sentinel если его убрали
+      if (!$("#fridge-sentinel", wrap)) {
+        const s = document.createElement("div");
+        s.id = "fridge-sentinel"; s.style.height = "1px";
+        wrap.appendChild(s);
+      }
+      startPagination();
+    }
+
+    function startPagination() {
+      const active = allGroups.find((g) => g.category === fridgeCat) || allGroups[0];
+      const items = applyFiltersAndSort(active.items);
+      const grid = $("#cat-items", wrap);
+      const countEl = $("#filter-count", wrap);
+      countEl.textContent = `${items.length} продуктов`;
+
+      function renderNextPage() {
+        const start = fridgePage * FRIDGE_PAGE_SIZE;
+        const slice = items.slice(start, start + FRIDGE_PAGE_SIZE);
+        slice.forEach((it) => grid.appendChild(fridgeCard(it)));
+        fridgePage++;
+        const sentinel = $("#fridge-sentinel", wrap);
+        if (fridgePage * FRIDGE_PAGE_SIZE >= items.length) {
+          if (fridgeObserver) { fridgeObserver.disconnect(); fridgeObserver = null; }
+          if (sentinel) sentinel.remove();
+        }
+      }
+
+      renderNextPage();
+
+      if (items.length > FRIDGE_PAGE_SIZE) {
+        if (fridgeObserver) fridgeObserver.disconnect();
+        fridgeObserver = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting) renderNextPage();
+        }, { rootMargin: "120px" });
+        const sentinel = $("#fridge-sentinel", wrap);
+        if (sentinel) fridgeObserver.observe(sentinel);
       }
     }
 
-    renderNextPage();
-
-    if (items.length > FRIDGE_PAGE_SIZE) {
-      if (fridgeObserver) fridgeObserver.disconnect();
-      fridgeObserver = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting) renderNextPage();
-      }, { rootMargin: "120px" });
-      fridgeObserver.observe(sentinel);
-    }
+    fridgePage = 0;
+    startPagination();
   }
 
   function fridgeCard(it) {
