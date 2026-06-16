@@ -7,6 +7,9 @@
   const state = { user: null, profile: null, targets: null, meals: [], today: todayStr() };
   let reload = () => {};
   let fridgeCat = null; // активная категория-вкладка в холодильнике
+  const FRIDGE_PAGE_SIZE = 15;
+  let fridgePage = 0;        // сколько страниц уже отрисовано
+  let fridgeObserver = null; // IntersectionObserver для infinite scroll
 
   function todayStr() { return new Date().toISOString().slice(0, 10); }
   function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
@@ -451,17 +454,46 @@
 
     wrap.innerHTML = `
       <div class="tabs" id="cat-tabs"></div>
-      <div class="grid grid-meals" id="cat-items" style="margin-top:18px"></div>`;
+      <div class="grid grid-meals" id="cat-items" style="margin-top:18px"></div>
+      <div id="fridge-sentinel" style="height:1px"></div>`;
     const tabs = $("#cat-tabs", wrap);
     tabs.innerHTML = allGroups.map((g) => {
       const label = g.category === ALL_CAT ? "Все" : g.category;
       return `<button class="tab ${g.category === fridgeCat ? "active" : ""}" data-cat="${esc(g.category)}">
         ${esc(label)} <span class="cnt">${g.items.length}</span></button>`;
     }).join("");
-    $$(".tab", tabs).forEach((b) => b.addEventListener("click", () => { fridgeCat = b.dataset.cat; viewFridge(); }));
+    $$(".tab", tabs).forEach((b) => b.addEventListener("click", () => {
+      fridgeCat = b.dataset.cat;
+      fridgePage = 0;
+      if (fridgeObserver) { fridgeObserver.disconnect(); fridgeObserver = null; }
+      viewFridge();
+    }));
 
+    fridgePage = 0;
     const grid = $("#cat-items", wrap);
-    active.items.forEach((it) => grid.appendChild(fridgeCard(it)));
+    const sentinel = $("#fridge-sentinel", wrap);
+    const items = active.items;
+
+    function renderNextPage() {
+      const start = fridgePage * FRIDGE_PAGE_SIZE;
+      const slice = items.slice(start, start + FRIDGE_PAGE_SIZE);
+      slice.forEach((it) => grid.appendChild(fridgeCard(it)));
+      fridgePage++;
+      if (fridgePage * FRIDGE_PAGE_SIZE >= items.length) {
+        if (fridgeObserver) { fridgeObserver.disconnect(); fridgeObserver = null; }
+        sentinel.remove();
+      }
+    }
+
+    renderNextPage();
+
+    if (items.length > FRIDGE_PAGE_SIZE) {
+      if (fridgeObserver) fridgeObserver.disconnect();
+      fridgeObserver = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) renderNextPage();
+      }, { rootMargin: "120px" });
+      fridgeObserver.observe(sentinel);
+    }
   }
 
   function fridgeCard(it) {
