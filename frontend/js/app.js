@@ -59,7 +59,7 @@
 
     const inner = {
       "#/today": viewToday, "#/fridge": viewFridge, "#/receipt": viewReceipt,
-      "#/recipes": viewRecipes, "#/settings": viewSettings,
+      "#/add": viewAddProducts, "#/recipes": viewRecipes, "#/settings": viewSettings,
     }[route] || viewToday;
     renderShell(route);
     inner();
@@ -70,6 +70,7 @@
   const NAV = [
     ["#/today", "home", "Сегодня"],
     ["#/fridge", "fridge", "Холодильник"],
+    ["#/add", "search", "Продукты"],
     ["#/receipt", "receipt", "Сканер чека"],
     ["#/recipes", "chef", "Рецепты"],
     ["#/settings", "settings", "Профиль"],
@@ -877,6 +878,27 @@
         });
       },
     });
+  }
+
+  // ---------------- Add products ----------------
+  function viewAddProducts() {
+    reload = viewAddProducts;
+    const v = view();
+    v.innerHTML = `
+      <div class="page-head">
+        <div><h1>Добавить продукты</h1><div class="sub">Поиск по каталогу из базы продуктов</div></div>
+      </div>
+      <div class="card" style="max-width:680px">
+        <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:12px 14px">
+          ${icon("search", "icon-sm")}
+          <input class="input" id="add-q" placeholder="Добавить продукты…" autocomplete="off"
+            style="border:none;background:transparent;padding:0;font-size:16px;outline:none;flex:1;box-shadow:none">
+        </div>
+        <div id="add-res" style="margin-top:12px"></div>
+        <p class="hint" style="margin-top:16px">
+          ${icon("info", "icon-sm")} Зелёным будут выделены продукты из вашего холодильника
+        </p>
+      </div>`;
   }
 
   // ---------------- Receipt scanner ----------------
