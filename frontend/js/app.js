@@ -565,7 +565,7 @@
       </div>
       <div id="groups"></div>`;
 
-    $("#add", v).addEventListener("click", openSearchAddFridge);
+    $("#add", v).addEventListener("click", () => go("#/add"));
     $("#scan", v).addEventListener("click", () => go("#/receipt"));
 
     const wrap = $("#groups", v);
@@ -818,52 +818,6 @@
             toast("Добавлено в дневник"); close();
           } catch (e) { toast(e.message, "err"); }
         });
-      },
-    });
-  }
-
-  function openSearchAddFridge() {
-    let timer = null;
-    openModal({
-      title: "Добавить продукт в холодильник", width: "560px",
-      render: (body) => {
-        body.innerHTML = `
-          <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:10px 14px">
-            ${icon("search", "icon-sm")}
-            <input class="input" id="sf-q" placeholder="Начните вводить название продукта…" autocomplete="off"
-              style="border:none;background:transparent;padding:0 0 0 2px;font-size:15px;outline:none;flex:1;box-shadow:none">
-          </div>
-          <div id="sf-res" style="margin-top:10px"></div>`;
-
-        const q = body.querySelector("#sf-q");
-        const res = body.querySelector("#sf-res");
-
-        const doSearch = async () => {
-          const term = q.value.trim();
-          if (!term) { res.innerHTML = ""; return; }
-          res.innerHTML = spinner();
-          try {
-            const items = await API.searchProducts(term);
-            if (!items.length) { res.innerHTML = `<div class="hint" style="padding:6px 0">Ничего не найдено</div>`; return; }
-            res.innerHTML = `<div class="search-results">${items.map((it) =>
-              `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}"
-                data-cal="${it.calories}" data-p="${it.protein}" data-f="${it.fat}" data-c="${it.carbs}">
-                <span>${esc(it.name)}</span><span class="cat">${num(it.calories)} ккал/100г</span></div>`
-            ).join("")}</div>`;
-            res.querySelectorAll(".opt").forEach((o) => o.addEventListener("click", () => {
-              const prod = { id: +o.dataset.id, name: o.dataset.name,
-                per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c } };
-              openAddProductToFridge(prod);
-            }));
-          } catch (e) { res.innerHTML = `<div class="hint err" style="padding:6px 0">${e.message}</div>`; }
-        };
-
-        q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(doSearch, 280); });
-        setTimeout(() => q.focus(), 50);
-      },
-      footer: (f, close) => {
-        f.innerHTML = `<button class="btn btn-ghost" data-x>Закрыть</button>`;
-        f.querySelector("[data-x]").addEventListener("click", close);
       },
     });
   }
