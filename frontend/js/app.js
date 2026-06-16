@@ -1066,96 +1066,73 @@
   async function viewRecipes() {
     reload = viewRecipes;
     const v = view();
-
-    const SLOT_OPTIONS = [["", "Сейчас (авто)"], ...state.meals.map((m) => [String(m.id), m.name])];
-    let recSlotId = "";
-
-    const currentSlotLabel = () => SLOT_OPTIONS.find(([v]) => v === recSlotId)?.[1] || "Сейчас (авто)";
+    let allDishes = [];
+    let searchTerm = "";
 
     v.innerHTML = `
       <div class="page-head">
-        <div><h1>Рекомендации рецептов</h1><div class="sub">По остатку КБЖУ и содержимому холодильника</div></div>
+        <div><h1>Мои рецепты</h1><div class="sub">Все созданные блюда</div></div>
         <button class="btn btn-primary" id="new-dish">${icon("plus", "icon-sm")} Создать рецепт</button>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:48px;margin-bottom:20px;position:relative">
-        <div style="position:relative;display:inline-block">
-          <button class="btn btn-ghost" id="slot-btn" style="border:1px solid var(--line-2);gap:6px">
-            ${icon("filter", "icon-sm")}
-            <span id="slot-btn-label">${esc(currentSlotLabel())}</span>
-            ${icon("chevron-down", "icon-sm")}
-          </button>
-          <div id="slot-dropdown" style="
-            display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:200;
-            background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
-            box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;padding:8px 0;
-          ">
-            <div style="padding:8px 14px 6px;font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em">Приём пищи</div>
-            ${SLOT_OPTIONS.map(([val, label]) => `
-              <button class="slot-option" data-val="${val}" style="
-                display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;
-                background:none;border:none;cursor:pointer;font-size:14px;color:var(--ink);
-                text-align:left;transition:background .12s;
-                ${recSlotId === val ? "background:var(--surface-2);font-weight:600;color:var(--primary);" : ""}
-              ">
-                <span style="width:16px;flex:none">${recSlotId === val ? icon("check", "icon-sm") : ""}</span>
-                ${esc(label)}
-              </button>`).join("")}
-          </div>
+      <div class="card" style="max-width:680px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:10px 14px">
+          ${icon("search", "icon-sm")}
+          <input class="input" id="rec-q" placeholder="Поиск по названию…" autocomplete="off"
+            style="border:none;background:transparent;padding:0 0 0 2px;font-size:15px;outline:none;flex:1;box-shadow:none">
         </div>
       </div>
       <div id="rec-list">${spinner()}</div>`;
 
     const list = $("#rec-list", v);
-    const slotBtn = $("#slot-btn", v);
-    const slotDropdown = $("#slot-dropdown", v);
+    const searchInput = $("#rec-q", v);
+
+    const render = (dishes) => {
+      if (!dishes.length) {
+        list.innerHTML = `<div class="card">${emptyState("chef", searchTerm ? "Ничего не найдено" : "Рецептов пока нет — создайте первый")}</div>`;
+        return;
+      }
+      list.innerHTML = `<div class="grid grid-meals">${dishes.map((d) => dishCard(d)).join("")}</div>`;
+    };
 
     const load = async () => {
       list.innerHTML = spinner();
       try {
-        const recs = await API.recommendations(recSlotId || null);
-        list.innerHTML = recs.length
-          ? `<div class="grid grid-meals">${recs.map((r) => recCard(r)).join("")}</div>`
-          : `<div class="card">${emptyState("chef", "Подходящих рецептов нет — пополните холодильник")}</div>`;
-        wireRecCards(list, async (dishId, grams) => {
-          if (!recSlotId) return toast("Выберите конкретный приём, чтобы добавить", "err");
-          try {
-            await API.addEntry({ meal_slot_id: +recSlotId, dish_id: dishId, amount: grams, entry_date: state.today });
-            toast("Добавлено в дневник");
-          } catch (e) { toast(e.message, "err"); }
-        });
+        allDishes = await API.searchDishes("");
+        render(allDishes);
       } catch (e) { list.innerHTML = emptyState("info", e.message); }
     };
 
-    slotBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      slotDropdown.style.display = slotDropdown.style.display === "block" ? "none" : "block";
+    let timer = null;
+    searchInput.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        searchTerm = searchInput.value.trim().toLowerCase();
+        const filtered = allDishes.filter((d) => d.name.toLowerCase().includes(searchTerm));
+        render(filtered);
+      }, 200);
     });
 
-    const closeDropdown = () => { slotDropdown.style.display = "none"; };
-    document.addEventListener("click", closeDropdown);
-    new MutationObserver((_, obs) => {
-      if (!v.isConnected) { document.removeEventListener("click", closeDropdown); obs.disconnect(); }
-    }).observe(document.getElementById("app"), { childList: true, subtree: false });
-
-    $$(".slot-option", v).forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        recSlotId = btn.dataset.val;
-        slotDropdown.style.display = "none";
-        $("#slot-btn-label", v).textContent = currentSlotLabel();
-        $$(".slot-option", v).forEach((b) => {
-          const active = b.dataset.val === recSlotId;
-          b.style.background = active ? "var(--surface-2)" : "none";
-          b.style.fontWeight = active ? "600" : "400";
-          b.style.color = active ? "var(--primary)" : "var(--ink)";
-          b.querySelector("span").innerHTML = active ? icon("check", "icon-sm") : "";
-        });
-        load();
-      });
-    });
-
-    load();
     $("#new-dish", v).addEventListener("click", () => openCreateDish(load));
+    load();
+  }
+
+  function dishCard(d) {
+    const per = d.per_100g || {};
+    const ings = (d.ingredients || []).map((i) => esc(i.name)).join(", ");
+    return `<div class="card" style="margin-bottom:12px">
+      <div class="section-title">
+        <h3>${esc(d.name)}</h3>
+        <span class="kcal-tag">${num(per.calories || 0)} ккал/100г</span>
+      </div>
+      ${d.description ? `<div class="muted" style="font-size:13px;margin-bottom:8px">${esc(d.description)}</div>` : ""}
+      <div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:8px">
+        <span class="chip c-p">Б ${num(per.protein || 0)}</span>
+        <span class="chip c-f">Ж ${num(per.fat || 0)}</span>
+        <span class="chip c-u">У ${num(per.carbs || 0)}</span>
+        ${d.total_grams ? `<span class="chip">${num(d.total_grams)} г</span>` : ""}
+      </div>
+      ${ings ? `<div class="muted" style="font-size:12px">${icon("list", "icon-sm")} ${ings}</div>` : ""}
+    </div>`;
   }
 
   // -------- Reusable product search picker (returns chosen product via onPick) --------

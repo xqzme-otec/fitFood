@@ -85,7 +85,7 @@
     setMealPlan: (meals) => request("/profile/meals", { method: "PUT", body: { meals } }),
 
     searchProducts: (q) => request("/products?limit=12&q=" + encodeURIComponent(q || "")),
-    searchDishes: (q) => request("/dishes?limit=12&q=" + encodeURIComponent(q || "")),
+    searchDishes: (q) => request("/dishes?limit=200&q=" + encodeURIComponent(q || "")),
     createDish: (dish) => request("/dishes", { method: "POST", body: dish }),
 
     addEntry: (e) => request("/diary/entries", { method: "POST", body: e }),
