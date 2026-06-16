@@ -1159,18 +1159,28 @@
   }
 
   // -------- Reusable product search picker (returns chosen product via onPick) --------
-  function productSearchField(container, onPick) {
+  function productSearchField(container, onPick, fridgeMap = {}) {
     container.innerHTML = `
       <input class="input" data-q placeholder="Найти продукт…" autocomplete="off">
       <div data-res></div>`;
     const q = $("[data-q]", container), res = $("[data-res]", container);
     let timer = null;
     const search = async () => {
-      const items = await API.searchProducts(q.value.trim());
-      res.innerHTML = items.length ? `<div class="search-results">${items.map((it) =>
-        `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}" data-cal="${it.calories}"
+      const term = q.value.trim();
+      if (!term) { res.innerHTML = ""; return; }
+      const items = await API.searchProducts(term);
+      const inFridge = items.filter((it) => fridgeMap[it.name.trim().toLowerCase()]);
+      const notFridge = items.filter((it) => !fridgeMap[it.name.trim().toLowerCase()]);
+      const sorted = [...inFridge, ...notFridge];
+      res.innerHTML = sorted.length ? `<div class="search-results">${sorted.map((it) => {
+        const fi = fridgeMap[it.name.trim().toLowerCase()];
+        const badge = fi
+          ? `<span style="color:var(--ok);font-size:12px;font-weight:600;white-space:nowrap">имеется · ${fi.quantity}${fi.unit === "g" ? "г" : fi.unit}</span>`
+          : `<span class="cat">${num(it.calories)} ккал/100г</span>`;
+        return `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}" data-cal="${it.calories}"
           data-p="${it.protein}" data-f="${it.fat}" data-c="${it.carbs}">
-          <span>${esc(it.name)}</span><span class="cat">${num(it.calories)} ккал/100г</span></div>`).join("")}</div>`
+          <span>${esc(it.name)}</span>${badge}</div>`;
+      }).join("")}</div>`
         : `<div class="hint" style="padding:6px">Ничего не найдено</div>`;
       $$(".opt", res).forEach((o) => o.addEventListener("click", () => {
         onPick({ id: +o.dataset.id, name: o.dataset.name, calories: +o.dataset.cal,
@@ -1182,8 +1192,13 @@
   }
 
   // -------- Create own recipe (dish) --------
-  function openCreateDish(onSaved) {
+  async function openCreateDish(onSaved) {
     const ingredients = []; // {id,name,grams, per100...}
+    let fridgeMap = {};
+    try {
+      const fridgeItems = await API.fridgeItems();
+      fridgeItems.forEach((fi) => { fridgeMap[fi.name.trim().toLowerCase()] = fi; });
+    } catch (_) {}
     openModal({
       title: "Новый рецепт", width: "560px",
       render: (body) => {
@@ -1233,7 +1248,7 @@
           const found = ingredients.find((x) => x.id === prod.id);
           if (found) found.grams += 100; else ingredients.push({ ...prod, grams: 100 });
           redraw();
-        });
+        }, fridgeMap);
         redraw();
       },
       footer: (f, close) => {
