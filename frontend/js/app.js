@@ -70,7 +70,7 @@
   const NAV = [
     ["#/today", "home", "Сегодня"],
     ["#/fridge", "fridge", "Холодильник"],
-    ["#/add", "search", "Продукты"],
+    ["#/add", "search", "Добавить"],
     ["#/receipt", "receipt", "Сканер чека"],
     ["#/recipes", "chef", "Рецепты"],
     ["#/settings", "settings", "Профиль"],
@@ -881,24 +881,134 @@
   }
 
   // ---------------- Add products ----------------
-  function viewAddProducts() {
+  async function viewAddProducts() {
     reload = viewAddProducts;
     const v = view();
     v.innerHTML = `
       <div class="page-head">
-        <div><h1>Добавить продукты</h1><div class="sub">Поиск по каталогу из базы продуктов</div></div>
+        <div><h1>Добавить продукты</h1><div class="sub">Поиск по каталогу — продукты из холодильника отмечены зелёным</div></div>
       </div>
       <div class="card" style="max-width:680px">
-        <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:12px 16px">
           ${icon("search", "icon-sm")}
-          <input class="input" id="add-q" placeholder="Добавить продукты…" autocomplete="off"
-            style="border:none;background:transparent;padding:0;font-size:16px;outline:none;flex:1;box-shadow:none">
+          <input class="input" id="add-q" placeholder="Начните вводить название продукта…" autocomplete="off"
+            style="border:none;background:transparent;padding:0 0 0 2px;font-size:16px;outline:none;flex:1;box-shadow:none">
         </div>
         <div id="add-res" style="margin-top:12px"></div>
-        <p class="hint" style="margin-top:16px">
-          ${icon("info", "icon-sm")} Зелёным будут выделены продукты из вашего холодильника
-        </p>
       </div>`;
+
+    // Загружаем холодильник один раз для подсветки
+    let fridgeMap = {};
+    try {
+      const fridgeItems = await API.fridgeItems();
+      fridgeItems.forEach((fi) => { fridgeMap[fi.name.trim().toLowerCase()] = fi; });
+    } catch (_) {}
+
+    const q = document.getElementById("add-q");
+    const res = document.getElementById("add-res");
+    let timer = null;
+
+    const doSearch = async () => {
+      const term = q.value.trim();
+      if (!term) { res.innerHTML = ""; return; }
+      res.innerHTML = spinner();
+      try {
+        const items = await API.searchProducts(term);
+        if (!items.length) { res.innerHTML = `<div class="hint" style="padding:6px 0">Ничего не найдено</div>`; return; }
+
+        // Сортируем: сначала те, что есть в холодильнике
+        const inFridge = items.filter((it) => fridgeMap[it.name.trim().toLowerCase()]);
+        const notFridge = items.filter((it) => !fridgeMap[it.name.trim().toLowerCase()]);
+        const sorted = [...inFridge, ...notFridge];
+
+        res.innerHTML = `<div class="search-results">${sorted.map((it) => {
+          const fi = fridgeMap[it.name.trim().toLowerCase()];
+          const badge = fi
+            ? `<span style="color:var(--ok);font-size:12px;font-weight:600;white-space:nowrap">имеется · ${fi.quantity}${fi.unit === "g" ? "г" : fi.unit}</span>`
+            : `<span class="cat">${num(it.calories)} ккал/100г</span>`;
+          return `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}"
+            data-cal="${it.calories}" data-p="${it.protein}" data-f="${it.fat}" data-c="${it.carbs}"
+            data-fridge-id="${fi ? fi.id : ""}" data-fridge-qty="${fi ? fi.quantity : ""}">
+            <span>${esc(it.name)}</span>${badge}</div>`;
+        }).join("")}</div>`;
+
+        res.querySelectorAll(".opt").forEach((o) => o.addEventListener("click", () => {
+          const prod = {
+            id: +o.dataset.id, name: o.dataset.name,
+            per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c }
+          };
+          const fridgeId = o.dataset.fridgeId ? +o.dataset.fridgeId : null;
+          const fridgeQty = o.dataset.fridgeQty ? +o.dataset.fridgeQty : null;
+          openAddProductToMeal(prod, fridgeId, fridgeQty);
+        }));
+      } catch (e) { res.innerHTML = `<div class="hint err" style="padding:6px 0">${e.message}</div>`; }
+    };
+
+    q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(doSearch, 280); });
+    q.focus();
+  }
+
+  function openAddProductToMeal(prod, fridgeId, fridgeQty) {
+    openModal({
+      title: `Добавить «${prod.name}»`,
+      render: (body) => {
+        body.innerHTML = `
+          <div class="field"><label>Приём пищи</label>
+            <div id="ap-slots" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div></div>
+          <div class="divider"></div>
+          <div class="field"><label>Количество, г/мл</label>
+            <input class="input" id="ap-amt" type="number" min="1" step="1" value="100"></div>
+          <div class="card" style="background:var(--surface-2);padding:12px" id="ap-prev"></div>
+          ${fridgeId ? `<p class="hint" style="margin-top:10px">${icon("info","icon-sm")} Будет списано из холодильника (осталось ${fridgeQty}г)</p>` : ""}`;
+
+        // Render meal slot buttons
+        const slotsDiv = body.querySelector("#ap-slots");
+        const meals = state.meals || [];
+        meals.forEach((m, i) => {
+          const btn = document.createElement("button");
+          btn.className = "btn btn-ghost btn-sm";
+          btn.textContent = m.name;
+          btn.dataset.slotId = m.meal_slot_id || m.id;
+          btn.addEventListener("click", () => {
+            slotsDiv.querySelectorAll("button").forEach((b) => b.classList.remove("btn-primary"));
+            btn.classList.add("btn-primary");
+          });
+          if (i === 0) btn.classList.add("btn-primary");
+          slotsDiv.appendChild(btn);
+        });
+
+        const amt = body.querySelector("#ap-amt");
+        const prev = body.querySelector("#ap-prev");
+        const upd = () => {
+          const f = (+amt.value || 0) / 100;
+          prev.innerHTML = `<div class="flex between"><b>${esc(prod.name)}</b>
+            <span class="kcal-tag">${num(prod.per100.calories * f)} ккал</span></div>
+            <div class="muted" style="font-size:13px;margin-top:4px">Б ${num(prod.per100.protein * f)} · Ж ${num(prod.per100.fat * f)} · У ${num(prod.per100.carbs * f)}</div>`;
+        };
+        amt.addEventListener("input", upd); upd();
+      },
+      footer: (f, close) => {
+        f.innerHTML = `<button class="btn btn-ghost" data-x>Отмена</button><button class="btn btn-primary" data-ok>Добавить</button>`;
+        f.querySelector("[data-x]").addEventListener("click", close);
+        f.querySelector("[data-ok]").addEventListener("click", async () => {
+          const amount = +document.getElementById("ap-amt").value;
+          if (!amount || amount <= 0) return toast("Укажите количество", "err");
+          const slotEl = document.querySelector("#ap-slots .btn-primary");
+          const slotId = slotEl ? +slotEl.dataset.slotId : null;
+          if (!slotId) return toast("Выберите приём пищи", "err");
+          try {
+            await API.addEntry({ meal_slot_id: slotId, product_id: prod.id, amount, entry_date: state.today });
+            // Если продукт из холодильника — списать
+            if (fridgeId) {
+              const newQty = (fridgeQty || 0) - amount;
+              if (newQty <= 0) { await API.fridgeDelete(fridgeId); }
+              else { await API.fridgeUpdate(fridgeId, { quantity: newQty }); }
+            }
+            toast("Добавлено в дневник"); close(); viewToday();
+          } catch (e) { toast(e.message, "err"); }
+        });
+      },
+    });
   }
 
   // ---------------- Receipt scanner ----------------
