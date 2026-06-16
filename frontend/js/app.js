@@ -490,7 +490,7 @@
     const currentSortLabel = SORT_OPTIONS.find(([v]) => v === fridgeSort)?.[1] || "Сортировка";
     wrap.innerHTML = `
       <div class="tabs" id="cat-tabs"></div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;position:relative">
+      <div style="display:flex;align-items:center;gap:10px;margin-top:24px;position:relative">
         <div style="position:relative;display:inline-block">
           <button class="btn btn-ghost" id="sort-btn" style="border:1px solid var(--line-2);gap:6px">
             ${icon("filter", "icon-sm")}
