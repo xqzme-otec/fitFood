@@ -421,15 +421,45 @@
           const unitLabel = selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г";
           const defaultAmt = selected.unit === "pcs" ? 1 : 100;
           const maxAttr = selected.maxQty != null ? `max="${selected.maxQty}"` : "";
+          const dish = mode === "dish" ? dishDetailsCache[selected.id] : null;
+          const ings = dish?.ingredients || [];
+
           pick.innerHTML = `
             <div class="divider"></div>
             <div class="field">
               <label>Количество, ${unitLabel}${selected.maxQty != null ? ` (в холодильнике: ${num(selected.maxQty)} ${unitLabel})` : ""}</label>
               <input class="input" id="m-amt" type="number" min="1" step="1" value="${defaultAmt}" ${maxAttr}>
             </div>
-            <div class="card" style="background:var(--surface-2);padding:12px" id="m-prev"></div>`;
+            <div class="card" style="background:var(--surface-2);padding:12px" id="m-prev"></div>
+            ${ings.length ? `
+            <div style="margin-top:10px;border:1px solid var(--line-2);border-radius:var(--r-sm);overflow:hidden">
+              <button id="m-ings-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2)">
+                <span>${icon("list", "icon-sm")} Списание из холодильника</span>
+                <span id="m-ings-chevron" style="transition:transform .2s">${icon("chevron-down", "icon-sm")}</span>
+              </button>
+              <div id="m-ings-list" style="display:none;border-top:1px solid var(--line-2)">
+                ${ings.map((ing) => `
+                  <div class="list-item" data-ing-id="${ing.product_id}" data-ing-grams="${ing.grams}" style="padding:8px 14px">
+                    <span class="grow" style="font-size:13px">${esc(ing.name)}</span>
+                    <span class="ing-qty muted" style="font-size:13px;white-space:nowrap">—</span>
+                  </div>`).join("")}
+              </div>
+            </div>` : ""}`;
 
           const amt = $("#m-amt", pick), prev = $("#m-prev", pick);
+
+          // Раскрывающийся список
+          const toggle = pick.querySelector("#m-ings-toggle");
+          const ingsList = pick.querySelector("#m-ings-list");
+          const chevron = pick.querySelector("#m-ings-chevron");
+          if (toggle) {
+            toggle.addEventListener("click", () => {
+              const open = ingsList.style.display !== "none";
+              ingsList.style.display = open ? "none" : "block";
+              chevron.style.transform = open ? "" : "rotate(180deg)";
+            });
+          }
+
           const upd = () => {
             const qty = +amt.value || 0;
             const f = selected.unit === "pcs" ? qty : qty / 100;
@@ -441,8 +471,16 @@
               <div class="flex between">
                 <b>${esc(selected.name)}</b>
                 <span class="kcal-tag">${selected.hasKbju ? num(p.calories * f) + " ккал" : "—"}</span>
-              </div>${kbjuLine}
-              ${selected.fridgeId ? `<div style="font-size:12px;margin-top:6px;color:#16a34a;font-weight:600">✓ Спишется из холодильника</div>` : ""}`;
+              </div>${kbjuLine}`;
+
+            // Обновляем количества ингредиентов пропорционально введённым граммам
+            if (ings.length && dish?.total_grams) {
+              const scale = qty / dish.total_grams;
+              pick.querySelectorAll("[data-ing-grams]").forEach((row) => {
+                const g = Math.round(+row.dataset.ingGrams * scale);
+                row.querySelector(".ing-qty").textContent = g > 0 ? `${g} г` : "< 1 г";
+              });
+            }
           };
           amt.addEventListener("input", upd); upd();
         }
