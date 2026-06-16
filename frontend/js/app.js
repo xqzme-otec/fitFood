@@ -286,6 +286,7 @@
   function openAddFood(slot) {
     let mode = "product", selected = null, timer = null;
     let fridgeCache = null;
+    const dishDetailsCache = {};
 
     openModal({
       title: `Добавить в «${slot.name}»`,
@@ -347,6 +348,8 @@
 
           if (mode === "dish") {
             const items = await API.searchDishes(term);
+            // Сохраняем полные данные блюда (включая ингредиенты) для списания из холодильника
+            items.forEach((it) => { dishDetailsCache[it.id] = it; });
             renderResults(items.map((it) => ({ id: it.id, name: it.name, _unit: "g", _per100: it.per_100g })));
             return;
           }
@@ -458,8 +461,70 @@
           }
 
           const payload = { meal_slot_id: slot.meal_slot_id || slot.id, amount, entry_date: state.today };
-          if (mode === "dish") payload.dish_id = selected.id;
-          else payload.product_id = selected.id;
+
+          if (mode === "dish") {
+            payload.dish_id = selected.id;
+            // Проверяем ингредиенты блюда против холодильника
+            const dish = dishDetailsCache[selected.id];
+            const ings = dish?.ingredients || [];
+            if (ings.length > 0) {
+              if (!fridgeCache) {
+                try { fridgeCache = await API.fridgeItems(); } catch { fridgeCache = []; }
+              }
+              const fridgeByProductId = Object.fromEntries(
+                fridgeCache.filter((fi) => fi.product_id).map((fi) => [fi.product_id, fi])
+              );
+              // Масштабируем граммы ингредиентов на введённое количество
+              const scale = amount / (dish.total_grams || amount);
+              const toDeduct = [];
+              const missing = [];
+              ings.forEach((ing) => {
+                const fi = fridgeByProductId[ing.product_id];
+                const needed = Math.round(ing.grams * scale);
+                if (fi) toDeduct.push({ fi, needed });
+                else missing.push({ name: ing.name, needed });
+              });
+
+              if (missing.length > 0) {
+                const ok = await new Promise((resolve) => {
+                  openModal({
+                    title: "Не хватает продуктов", width: "420px",
+                    render: (b) => {
+                      b.innerHTML = `
+                        <p style="margin:0 0 12px">Этих ингредиентов нет в холодильнике:</p>
+                        <div class="list">${missing.map((m) =>
+                          `<div class="list-item">
+                            <span class="grow">${esc(m.name)}</span>
+                            <span class="muted" style="font-size:13px">${m.needed} г</span>
+                          </div>`).join("")}
+                        </div>
+                        <p style="margin:12px 0 0;color:var(--muted);font-size:13px">Всё равно добавить блюдо в рацион?</p>`;
+                    },
+                    footer: (f, close) => {
+                      f.innerHTML = `<button class="btn btn-ghost" data-no>Отмена</button>
+                        <button class="btn btn-primary" data-yes>Добавить</button>`;
+                      f.querySelector("[data-no]").addEventListener("click", () => { close(); resolve(false); });
+                      f.querySelector("[data-yes]").addEventListener("click", () => { close(); resolve(true); });
+                    },
+                  });
+                });
+                if (!ok) return;
+              }
+
+              try {
+                await API.addEntry(payload);
+                await Promise.all(toDeduct.map(({ fi, needed }) => {
+                  const remaining = fi.quantity - needed;
+                  return remaining <= 0 ? API.fridgeDelete(fi.id) : API.fridgeUpdate(fi.id, { quantity: remaining });
+                }));
+                toast(toDeduct.length > 0 ? "Добавлено и списано из холодильника" : "Добавлено в рацион");
+                close(); viewToday();
+              } catch (e) { toast(e.message, "err"); }
+              return;
+            }
+          } else {
+            payload.product_id = selected.id;
+          }
 
           try {
             await API.addEntry(payload);
