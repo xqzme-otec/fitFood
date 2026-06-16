@@ -284,7 +284,7 @@
   // -------- Add food modal --------
   function openAddFood(slot) {
     let mode = "product", selected = null, timer = null;
-    let fridgeCache = null; // загружаем один раз
+    let fridgeCache = null;
 
     openModal({
       title: `Добавить в «${slot.name}»`,
@@ -293,7 +293,6 @@
           <div class="seg" id="m-seg">
             <button class="active" data-mode="product">Продукт</button>
             <button data-mode="dish">Блюдо</button>
-            <button data-mode="fridge">🧊 Холодильник</button>
           </div>
           <div class="field" style="margin-top:12px"><label>Поиск</label>
             <input class="input" id="m-q" placeholder="Например, куриное филе" autocomplete="off">
@@ -306,7 +305,6 @@
           const b = e.target.closest("[data-mode]"); if (!b) return;
           mode = b.dataset.mode; selected = null; pick.innerHTML = ""; res.innerHTML = "";
           $$("#m-seg button", body).forEach((x) => x.classList.toggle("active", x === b));
-          q.placeholder = mode === "fridge" ? "Поиск по холодильнику" : "Например, куриное филе";
           doSearch();
         });
 
@@ -314,12 +312,17 @@
           if (!items.length) { res.innerHTML = `<div class="hint" style="padding:6px 0">Ничего не найдено</div>`; return; }
           res.innerHTML = `<div class="search-results">${items.map((it) => {
             const per = it._per100 || {};
-            const hasKbju = per.calories != null;
+            const inFridge = !!it._fridgeId;
+            const unitLabel = it._unit === "ml" ? "мл" : it._unit === "pcs" ? "шт" : "г";
+            const kbjuText = per.calories != null && per.calories > 0 ? `${num(per.calories)} ккал/100г` : "КБЖУ неизв.";
             return `<div class="opt" data-id="${it.id}" data-fridge-id="${it._fridgeId || ""}"
-              data-name="${esc(it.name)}" data-unit="${esc(it._unit || "g")}" data-max="${it._max || ""}"
+              data-name="${esc(it.name)}" data-unit="${esc(it._unit || "g")}" data-max="${it._max != null ? it._max : ""}"
               data-cal="${per.calories || 0}" data-p="${per.protein || 0}" data-f="${per.fat || 0}" data-c="${per.carbs || 0}">
-              <span>${esc(it.name)}${it._unit === "pcs" ? " (шт)" : ""}</span>
-              <span class="cat">${hasKbju ? num(per.calories) + " ккал/100г" : "КБЖУ неизв."} ${it._max != null ? "· " + num(it._max) + (it._unit === "ml" ? " мл" : it._unit === "pcs" ? " шт" : " г") + " в холодильнике" : ""}</span>
+              <span>
+                ${esc(it.name)}
+                ${inFridge ? `<span style="color:#16a34a;font-size:12px;font-weight:600;margin-left:6px">имеется · ${num(it._max)} ${unitLabel}</span>` : ""}
+              </span>
+              <span class="cat">${kbjuText}</span>
             </div>`;
           }).join("")}</div>`;
 
@@ -329,8 +332,8 @@
               id: +o.dataset.id,
               fridgeId: o.dataset.fridgeId ? +o.dataset.fridgeId : null,
               name: o.dataset.name,
-              unit: o.dataset.unit,
-              maxQty: o.dataset.max ? +o.dataset.max : null,
+              unit: o.dataset.unit || "g",
+              maxQty: o.dataset.max !== "" ? +o.dataset.max : null,
               per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c },
               hasKbju: hasCal,
             };
@@ -341,37 +344,74 @@
         const doSearch = async () => {
           const term = q.value.trim();
 
-          if (mode === "fridge") {
-            if (!fridgeCache) {
-              res.innerHTML = `<div class="hint" style="padding:6px 0">Загрузка…</div>`;
-              try { fridgeCache = await API.fridgeItems(); } catch { fridgeCache = []; }
-            }
-            const filtered = fridgeCache.filter((it) =>
-              !term || it.name.toLowerCase().includes(term.toLowerCase())
-            );
-            const mapped = filtered.map((it) => ({
-              id: it.product_id || 0,
-              name: it.name,
-              _fridgeId: it.id,
-              _unit: it.unit,
-              _max: it.quantity,
-              _per100: it.kbju_100g || {},
-            }));
-            renderResults(mapped);
+          if (mode === "dish") {
+            const items = await API.searchDishes(term);
+            renderResults(items.map((it) => ({ id: it.id, name: it.name, _unit: "g", _per100: it.per_100g })));
             return;
           }
 
-          const items = mode === "product" ? await API.searchProducts(term) : await API.searchDishes(term);
-          renderResults(items.map((it) => ({
-            id: it.id,
-            name: it.name,
-            _unit: "g",
-            _per100: mode === "product" ? it : it.per_100g,
-          })));
+          // Загружаем холодильник один раз
+          if (!fridgeCache) {
+            try { fridgeCache = await API.fridgeItems(); } catch { fridgeCache = []; }
+          }
+
+          // Поиск по каталогу
+          const catalogItems = await API.searchProducts(term);
+
+          // Фильтруем холодильник по поисковому запросу
+          const termLower = term.toLowerCase();
+          const fridgeMatches = fridgeCache.filter((fi) =>
+            !term || fi.name.toLowerCase().includes(termLower)
+          );
+          // Имена из холодильника для быстрого поиска дублей
+          const fridgeByProductId = Object.fromEntries(
+            fridgeCache.filter((fi) => fi.product_id).map((fi) => [fi.product_id, fi])
+          );
+          const fridgeByName = Object.fromEntries(
+            fridgeCache.map((fi) => [fi.name.toLowerCase(), fi])
+          );
+
+          // Помечаем каталожные продукты, если они есть в холодильнике
+          const catalogMapped = catalogItems.map((it) => {
+            const fi = fridgeByProductId[it.id] || fridgeByName[it.name.toLowerCase()];
+            return {
+              id: it.id,
+              name: it.name,
+              _fridgeId: fi ? fi.id : null,
+              _unit: fi ? fi.unit : "g",
+              _max: fi ? fi.quantity : null,
+              _per100: it,
+              _inFridge: !!fi,
+            };
+          });
+
+          // Добавляем продукты из холодильника, которых нет в каталоге
+          const catalogProductIds = new Set(catalogItems.map((it) => it.id));
+          const fridgeOnly = fridgeMatches
+            .filter((fi) => !fi.product_id || !catalogProductIds.has(fi.product_id))
+            .filter((fi) => !catalogMapped.some((c) => c._fridgeId === fi.id))
+            .map((fi) => ({
+              id: fi.product_id || 0,
+              name: fi.name,
+              _fridgeId: fi.id,
+              _unit: fi.unit,
+              _max: fi.quantity,
+              _per100: fi.kbju_100g || {},
+              _inFridge: true,
+            }));
+
+          // Сортировка: сначала есть в холодильнике, потом каталог
+          const merged = [...catalogMapped, ...fridgeOnly].sort((a, b) => {
+            if (a._inFridge && !b._inFridge) return -1;
+            if (!a._inFridge && b._inFridge) return 1;
+            return 0;
+          });
+
+          renderResults(merged);
         };
 
         q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(doSearch, 250); });
-        doSearch(); // показать список сразу при открытии
+        doSearch();
 
         function renderPick() {
           const unitLabel = selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г";
@@ -381,7 +421,7 @@
             <div class="divider"></div>
             <div class="field">
               <label>Количество, ${unitLabel}${selected.maxQty != null ? ` (в холодильнике: ${num(selected.maxQty)} ${unitLabel})` : ""}</label>
-              <input class="input" id="m-amt" type="number" min="1" step="${selected.unit === "pcs" ? 1 : 1}" value="${defaultAmt}" ${maxAttr}>
+              <input class="input" id="m-amt" type="number" min="1" step="1" value="${defaultAmt}" ${maxAttr}>
             </div>
             <div class="card" style="background:var(--surface-2);padding:12px" id="m-prev"></div>`;
 
@@ -398,7 +438,7 @@
                 <b>${esc(selected.name)}</b>
                 <span class="kcal-tag">${selected.hasKbju ? num(p.calories * f) + " ккал" : "—"}</span>
               </div>${kbjuLine}
-              ${selected.fridgeId ? `<div style="font-size:12px;margin-top:6px;color:var(--primary)">📦 Спишется из холодильника</div>` : ""}`;
+              ${selected.fridgeId ? `<div style="font-size:12px;margin-top:6px;color:#16a34a;font-weight:600">✓ Спишется из холодильника</div>` : ""}`;
           };
           amt.addEventListener("input", upd); upd();
         }
@@ -408,11 +448,13 @@
         f.querySelector("[data-x]").addEventListener("click", close);
         f.querySelector("[data-ok]").addEventListener("click", async () => {
           if (!selected) return toast("Выберите продукт или блюдо", "err");
-          if (mode === "fridge" && !selected.id) return toast("Продукт не привязан к каталогу, КБЖУ неизвестно", "err");
+          if (!selected.id) return toast("Продукт не привязан к каталогу", "err");
           const amount = +document.getElementById("m-amt").value;
           if (!amount || amount <= 0) return toast("Укажите количество", "err");
-          if (selected.maxQty != null && amount > selected.maxQty)
-            return toast(`В холодильнике только ${num(selected.maxQty)} ${selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г"}`, "err");
+          if (selected.maxQty != null && amount > selected.maxQty) {
+            const u = selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г";
+            return toast(`В холодильнике только ${num(selected.maxQty)} ${u}`, "err");
+          }
 
           const payload = { meal_slot_id: slot.meal_slot_id || slot.id, amount, entry_date: state.today };
           if (mode === "dish") payload.dish_id = selected.id;
@@ -420,16 +462,12 @@
 
           try {
             await API.addEntry(payload);
-
-            // Списываем из холодильника
             if (selected.fridgeId) {
               const remaining = (selected.maxQty || 0) - amount;
               if (remaining <= 0) await API.fridgeDelete(selected.fridgeId);
               else await API.fridgeUpdate(selected.fridgeId, { quantity: remaining });
-              fridgeCache = null; // сбросить кеш
             }
-
-            toast("Добавлено в дневник" + (selected.fridgeId ? " и списано из холодильника" : ""));
+            toast("Добавлено" + (selected.fridgeId ? " и списано из холодильника" : ""));
             close();
             viewToday();
           } catch (e) { toast(e.message, "err"); }
