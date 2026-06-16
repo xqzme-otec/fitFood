@@ -284,52 +284,161 @@
   // -------- Add food modal --------
   function openAddFood(slot) {
     let mode = "product", selected = null, timer = null;
+    let fridgeCache = null;
+
     openModal({
       title: `Добавить в «${slot.name}»`,
       render: (body) => {
         body.innerHTML = `
-          <div class="seg" id="m-seg"><button class="active" data-mode="product">Продукт</button><button data-mode="dish">Блюдо</button></div>
-          <div class="field"><label>Поиск</label>
+          <div class="seg" id="m-seg">
+            <button class="active" data-mode="product">Продукт</button>
+            <button data-mode="dish">Блюдо</button>
+          </div>
+          <div class="field" style="margin-top:12px"><label>Поиск</label>
             <input class="input" id="m-q" placeholder="Например, куриное филе" autocomplete="off">
             <div id="m-res"></div></div>
           <div id="m-pick"></div>`;
+
         const q = $("#m-q", body), res = $("#m-res", body), pick = $("#m-pick", body);
 
         $("#m-seg", body).addEventListener("click", (e) => {
           const b = e.target.closest("[data-mode]"); if (!b) return;
           mode = b.dataset.mode; selected = null; pick.innerHTML = ""; res.innerHTML = "";
           $$("#m-seg button", body).forEach((x) => x.classList.toggle("active", x === b));
-          if (q.value.trim()) doSearch();
+          doSearch();
         });
 
-        const doSearch = async () => {
-          const term = q.value.trim();
-          const items = mode === "product" ? await API.searchProducts(term) : await API.searchDishes(term);
-          res.innerHTML = items.length ? `<div class="search-results">${items.map((it) => {
-            const per = mode === "product" ? it : it.per_100g;
-            return `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}"
-              data-cal="${per.calories}" data-p="${per.protein}" data-f="${per.fat}" data-c="${per.carbs}">
-              <span>${esc(it.name)}</span><span class="cat">${num(per.calories)} ккал/100г</span></div>`;
-          }).join("")}</div>` : `<div class="hint" style="padding:6px">Ничего не найдено</div>`;
+        const renderResults = (items) => {
+          if (!items.length) { res.innerHTML = `<div class="hint" style="padding:6px 0">Ничего не найдено</div>`; return; }
+          res.innerHTML = `<div class="search-results">${items.map((it) => {
+            const per = it._per100 || {};
+            const inFridge = !!it._fridgeId;
+            const unitLabel = it._unit === "ml" ? "мл" : it._unit === "pcs" ? "шт" : "г";
+            const kbjuText = per.calories != null && per.calories > 0 ? `${num(per.calories)} ккал/100г` : "КБЖУ неизв.";
+            return `<div class="opt" data-id="${it.id}" data-fridge-id="${it._fridgeId || ""}"
+              data-name="${esc(it.name)}" data-unit="${esc(it._unit || "g")}" data-max="${it._max != null ? it._max : ""}"
+              data-cal="${per.calories || 0}" data-p="${per.protein || 0}" data-f="${per.fat || 0}" data-c="${per.carbs || 0}">
+              <span>
+                ${esc(it.name)}
+                ${inFridge ? `<span style="color:#16a34a;font-size:12px;font-weight:600;margin-left:6px">имеется · ${num(it._max)} ${unitLabel}</span>` : ""}
+              </span>
+              <span class="cat">${kbjuText}</span>
+            </div>`;
+          }).join("")}</div>`;
+
           $$(".opt", res).forEach((o) => o.addEventListener("click", () => {
-            selected = { id: +o.dataset.id, name: o.dataset.name,
-              per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c } };
+            const hasCal = +o.dataset.cal > 0 || +o.dataset.p > 0;
+            selected = {
+              id: +o.dataset.id,
+              fridgeId: o.dataset.fridgeId ? +o.dataset.fridgeId : null,
+              name: o.dataset.name,
+              unit: o.dataset.unit || "g",
+              maxQty: o.dataset.max !== "" ? +o.dataset.max : null,
+              per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c },
+              hasKbju: hasCal,
+            };
             res.innerHTML = ""; q.value = selected.name; renderPick();
           }));
         };
+
+        const doSearch = async () => {
+          const term = q.value.trim();
+
+          if (mode === "dish") {
+            const items = await API.searchDishes(term);
+            renderResults(items.map((it) => ({ id: it.id, name: it.name, _unit: "g", _per100: it.per_100g })));
+            return;
+          }
+
+          // Загружаем холодильник один раз
+          if (!fridgeCache) {
+            try { fridgeCache = await API.fridgeItems(); } catch { fridgeCache = []; }
+          }
+
+          // Поиск по каталогу
+          const catalogItems = await API.searchProducts(term);
+
+          // Фильтруем холодильник по поисковому запросу
+          const termLower = term.toLowerCase();
+          const fridgeMatches = fridgeCache.filter((fi) =>
+            !term || fi.name.toLowerCase().includes(termLower)
+          );
+          // Имена из холодильника для быстрого поиска дублей
+          const fridgeByProductId = Object.fromEntries(
+            fridgeCache.filter((fi) => fi.product_id).map((fi) => [fi.product_id, fi])
+          );
+          const fridgeByName = Object.fromEntries(
+            fridgeCache.map((fi) => [fi.name.toLowerCase(), fi])
+          );
+
+          // Помечаем каталожные продукты, если они есть в холодильнике
+          const catalogMapped = catalogItems.map((it) => {
+            const fi = fridgeByProductId[it.id] || fridgeByName[it.name.toLowerCase()];
+            return {
+              id: it.id,
+              name: it.name,
+              _fridgeId: fi ? fi.id : null,
+              _unit: fi ? fi.unit : "g",
+              _max: fi ? fi.quantity : null,
+              _per100: it,
+              _inFridge: !!fi,
+            };
+          });
+
+          // Добавляем продукты из холодильника, которых нет в каталоге
+          const catalogProductIds = new Set(catalogItems.map((it) => it.id));
+          const fridgeOnly = fridgeMatches
+            .filter((fi) => !fi.product_id || !catalogProductIds.has(fi.product_id))
+            .filter((fi) => !catalogMapped.some((c) => c._fridgeId === fi.id))
+            .map((fi) => ({
+              id: fi.product_id || 0,
+              name: fi.name,
+              _fridgeId: fi.id,
+              _unit: fi.unit,
+              _max: fi.quantity,
+              _per100: fi.kbju_100g || {},
+              _inFridge: true,
+            }));
+
+          // Сортировка: сначала есть в холодильнике, потом каталог
+          const merged = [...catalogMapped, ...fridgeOnly].sort((a, b) => {
+            if (a._inFridge && !b._inFridge) return -1;
+            if (!a._inFridge && b._inFridge) return 1;
+            return 0;
+          });
+
+          renderResults(merged);
+        };
+
         q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(doSearch, 250); });
+        doSearch();
 
         function renderPick() {
+          const unitLabel = selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г";
+          const defaultAmt = selected.unit === "pcs" ? 1 : 100;
+          const maxAttr = selected.maxQty != null ? `max="${selected.maxQty}"` : "";
           pick.innerHTML = `
             <div class="divider"></div>
-            <div class="field"><label>Количество, г/мл</label>
-              <input class="input" id="m-amt" type="number" min="1" step="1" value="100"></div>
+            <div class="field">
+              <label>Количество, ${unitLabel}${selected.maxQty != null ? ` (в холодильнике: ${num(selected.maxQty)} ${unitLabel})` : ""}</label>
+              <input class="input" id="m-amt" type="number" min="1" step="1" value="${defaultAmt}" ${maxAttr}>
+            </div>
             <div class="card" style="background:var(--surface-2);padding:12px" id="m-prev"></div>`;
+
           const amt = $("#m-amt", pick), prev = $("#m-prev", pick);
           const upd = () => {
-            const f = (+amt.value || 0) / 100;
-            prev.innerHTML = `<div class="flex between"><b>${esc(selected.name)}</b><span class="kcal-tag">${num(selected.per100.calories * f)} ккал</span></div>
-              <div class="muted" style="font-size:13px;margin-top:4px">Б ${num(selected.per100.protein * f)} · Ж ${num(selected.per100.fat * f)} · У ${num(selected.per100.carbs * f)}</div>`;
+            const qty = +amt.value || 0;
+            const f = selected.unit === "pcs" ? qty : qty / 100;
+            const p = selected.per100;
+            const kbjuLine = selected.hasKbju
+              ? `<div class="muted" style="font-size:13px;margin-top:4px">Б ${num(p.protein * f)} · Ж ${num(p.fat * f)} · У ${num(p.carbs * f)}</div>`
+              : `<div class="muted" style="font-size:13px;margin-top:4px">КБЖУ неизвестно</div>`;
+            prev.innerHTML = `
+              <div class="flex between">
+                <b>${esc(selected.name)}</b>
+                <span class="kcal-tag">${selected.hasKbju ? num(p.calories * f) + " ккал" : "—"}</span>
+              </div>${kbjuLine}
+              ${selected.fridgeId ? `<div style="font-size:12px;margin-top:6px;color:#16a34a;font-weight:600">✓ Спишется из холодильника</div>` : ""}`;
           };
           amt.addEventListener("input", upd); upd();
         }
@@ -339,12 +448,29 @@
         f.querySelector("[data-x]").addEventListener("click", close);
         f.querySelector("[data-ok]").addEventListener("click", async () => {
           if (!selected) return toast("Выберите продукт или блюдо", "err");
+          if (!selected.id) return toast("Продукт не привязан к каталогу", "err");
           const amount = +document.getElementById("m-amt").value;
           if (!amount || amount <= 0) return toast("Укажите количество", "err");
+          if (selected.maxQty != null && amount > selected.maxQty) {
+            const u = selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г";
+            return toast(`В холодильнике только ${num(selected.maxQty)} ${u}`, "err");
+          }
+
           const payload = { meal_slot_id: slot.meal_slot_id || slot.id, amount, entry_date: state.today };
-          payload[mode === "product" ? "product_id" : "dish_id"] = selected.id;
-          try { await API.addEntry(payload); toast("Добавлено в дневник"); close(); viewToday(); }
-          catch (e) { toast(e.message, "err"); }
+          if (mode === "dish") payload.dish_id = selected.id;
+          else payload.product_id = selected.id;
+
+          try {
+            await API.addEntry(payload);
+            if (selected.fridgeId) {
+              const remaining = (selected.maxQty || 0) - amount;
+              if (remaining <= 0) await API.fridgeDelete(selected.fridgeId);
+              else await API.fridgeUpdate(selected.fridgeId, { quantity: remaining });
+            }
+            toast("Добавлено" + (selected.fridgeId ? " и списано из холодильника" : ""));
+            close();
+            viewToday();
+          } catch (e) { toast(e.message, "err"); }
         });
       },
     });
@@ -856,40 +982,95 @@
   async function viewRecipes() {
     reload = viewRecipes;
     const v = view();
+
+    const SLOT_OPTIONS = [["", "Сейчас (авто)"], ...state.meals.map((m) => [String(m.id), m.name])];
+    let recSlotId = "";
+
+    const currentSlotLabel = () => SLOT_OPTIONS.find(([v]) => v === recSlotId)?.[1] || "Сейчас (авто)";
+
     v.innerHTML = `
       <div class="page-head">
         <div><h1>Рекомендации рецептов</h1><div class="sub">По остатку КБЖУ и содержимому холодильника</div></div>
-        <div class="flex gap-12 items-center" style="flex-wrap:wrap">
-          <button class="btn btn-primary" id="new-dish">${icon("plus", "icon-sm")} Создать рецепт</button>
-          <div class="field" style="margin:0;min-width:200px">
-            <label>Для приёма</label>
-            <select class="select" id="rec-slot">
-              <option value="">Сейчас (авто)</option>
-              ${state.meals.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join("")}
-            </select>
+        <button class="btn btn-primary" id="new-dish">${icon("plus", "icon-sm")} Создать рецепт</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:48px;margin-bottom:20px;position:relative">
+        <div style="position:relative;display:inline-block">
+          <button class="btn btn-ghost" id="slot-btn" style="border:1px solid var(--line-2);gap:6px">
+            ${icon("filter", "icon-sm")}
+            <span id="slot-btn-label">${esc(currentSlotLabel())}</span>
+            ${icon("chevron-down", "icon-sm")}
+          </button>
+          <div id="slot-dropdown" style="
+            display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:200;
+            background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+            box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;padding:8px 0;
+          ">
+            <div style="padding:8px 14px 6px;font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em">Приём пищи</div>
+            ${SLOT_OPTIONS.map(([val, label]) => `
+              <button class="slot-option" data-val="${val}" style="
+                display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;
+                background:none;border:none;cursor:pointer;font-size:14px;color:var(--ink);
+                text-align:left;transition:background .12s;
+                ${recSlotId === val ? "background:var(--surface-2);font-weight:600;color:var(--primary);" : ""}
+              ">
+                <span style="width:16px;flex:none">${recSlotId === val ? icon("check", "icon-sm") : ""}</span>
+                ${esc(label)}
+              </button>`).join("")}
           </div>
         </div>
       </div>
       <div id="rec-list">${spinner()}</div>`;
 
-    const sel = $("#rec-slot", v), list = $("#rec-list", v);
+    const list = $("#rec-list", v);
+    const slotBtn = $("#slot-btn", v);
+    const slotDropdown = $("#slot-dropdown", v);
+
     const load = async () => {
       list.innerHTML = spinner();
       try {
-        const recs = await API.recommendations(sel.value || null);
+        const recs = await API.recommendations(recSlotId || null);
         list.innerHTML = recs.length
           ? `<div class="grid grid-meals">${recs.map((r) => recCard(r)).join("")}</div>`
           : `<div class="card">${emptyState("chef", "Подходящих рецептов нет — пополните холодильник")}</div>`;
         wireRecCards(list, async (dishId, grams) => {
-          if (!sel.value) return toast("Выберите конкретный приём, чтобы добавить", "err");
+          if (!recSlotId) return toast("Выберите конкретный приём, чтобы добавить", "err");
           try {
-            await API.addEntry({ meal_slot_id: +sel.value, dish_id: dishId, amount: grams, entry_date: state.today });
+            await API.addEntry({ meal_slot_id: +recSlotId, dish_id: dishId, amount: grams, entry_date: state.today });
             toast("Добавлено в дневник");
           } catch (e) { toast(e.message, "err"); }
         });
       } catch (e) { list.innerHTML = emptyState("info", e.message); }
     };
-    sel.addEventListener("change", load); load();
+
+    slotBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      slotDropdown.style.display = slotDropdown.style.display === "block" ? "none" : "block";
+    });
+
+    const closeDropdown = () => { slotDropdown.style.display = "none"; };
+    document.addEventListener("click", closeDropdown);
+    new MutationObserver((_, obs) => {
+      if (!v.isConnected) { document.removeEventListener("click", closeDropdown); obs.disconnect(); }
+    }).observe(document.getElementById("app"), { childList: true, subtree: false });
+
+    $$(".slot-option", v).forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        recSlotId = btn.dataset.val;
+        slotDropdown.style.display = "none";
+        $("#slot-btn-label", v).textContent = currentSlotLabel();
+        $$(".slot-option", v).forEach((b) => {
+          const active = b.dataset.val === recSlotId;
+          b.style.background = active ? "var(--surface-2)" : "none";
+          b.style.fontWeight = active ? "600" : "400";
+          b.style.color = active ? "var(--primary)" : "var(--ink)";
+          b.querySelector("span").innerHTML = active ? icon("check", "icon-sm") : "";
+        });
+        load();
+      });
+    });
+
+    load();
     $("#new-dish", v).addEventListener("click", () => openCreateDish(load));
   }
 
