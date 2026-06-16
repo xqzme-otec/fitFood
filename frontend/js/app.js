@@ -11,7 +11,6 @@
   let fridgePage = 0;        // сколько страниц уже отрисовано
   let fridgeObserver = null; // IntersectionObserver для infinite scroll
   let fridgeSort = "added_desc"; // текущая сортировка
-  let fridgeOnlyKbju = false;    // фильтр «только с КБЖУ»
 
   function todayStr() { return new Date().toISOString().slice(0, 10); }
   function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
@@ -463,7 +462,7 @@
     ];
 
     function applyFiltersAndSort(items) {
-      let result = fridgeOnlyKbju ? items.filter((it) => it.kbju_100g) : [...items];
+      let result = [...items];
       result.sort((a, b) => {
         switch (fridgeSort) {
           case "added_asc":    return (a.added_at || "") > (b.added_at || "") ? 1 : -1;
@@ -488,16 +487,34 @@
       return result;
     }
 
+    const currentSortLabel = SORT_OPTIONS.find(([v]) => v === fridgeSort)?.[1] || "Сортировка";
     wrap.innerHTML = `
       <div class="tabs" id="cat-tabs"></div>
-      <div class="fridge-toolbar" id="fridge-toolbar" style="display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap">
-        <label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer">
-          <input type="checkbox" id="filter-kbju" ${fridgeOnlyKbju ? "checked" : ""} style="cursor:pointer">
-          Только с КБЖУ
-        </label>
-        <select class="select" id="sort-select" style="min-width:220px;font-size:14px">
-          ${SORT_OPTIONS.map(([v, l]) => `<option value="${v}" ${fridgeSort === v ? "selected" : ""}>${l}</option>`).join("")}
-        </select>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:14px;position:relative">
+        <div style="position:relative;display:inline-block">
+          <button class="btn btn-ghost" id="sort-btn" style="border:1px solid var(--line-2);gap:6px">
+            ${icon("filter", "icon-sm")}
+            <span id="sort-btn-label">${esc(currentSortLabel)}</span>
+            ${icon("chevron-down", "icon-sm")}
+          </button>
+          <div id="sort-dropdown" style="
+            display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:200;
+            background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+            box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:260px;padding:8px 0;
+          ">
+            <div style="padding:8px 14px 6px;font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em">Сортировка</div>
+            ${SORT_OPTIONS.map(([v, l]) => `
+              <button class="sort-option" data-val="${v}" style="
+                display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;
+                background:none;border:none;cursor:pointer;font-size:14px;color:var(--ink);
+                text-align:left;transition:background .12s;
+                ${fridgeSort === v ? "background:var(--surface-2);font-weight:600;color:var(--primary);" : ""}
+              ">
+                <span style="width:16px;flex:none">${fridgeSort === v ? icon("check", "icon-sm") : ""}</span>
+                ${esc(l)}
+              </button>`).join("")}
+          </div>
+        </div>
         <span class="muted" id="filter-count" style="font-size:13px"></span>
       </div>
       <div class="grid grid-meals" id="cat-items" style="margin-top:14px"></div>
@@ -516,13 +533,39 @@
       viewFridge();
     }));
 
-    $("#filter-kbju", wrap).addEventListener("change", (e) => {
-      fridgeOnlyKbju = e.target.checked;
-      rerenderItems();
+    const sortBtn = $("#sort-btn", wrap);
+    const sortDropdown = $("#sort-dropdown", wrap);
+
+    sortBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = sortDropdown.style.display === "block";
+      sortDropdown.style.display = open ? "none" : "block";
     });
-    $("#sort-select", wrap).addEventListener("change", (e) => {
-      fridgeSort = e.target.value;
-      rerenderItems();
+
+    // Закрывать дропдаун при клике вне; снимаем слушатель когда wrap уходит из DOM
+    const closeSortDropdown = () => { sortDropdown.style.display = "none"; };
+    document.addEventListener("click", closeSortDropdown);
+    new MutationObserver((_, obs) => {
+      if (!wrap.isConnected) { document.removeEventListener("click", closeSortDropdown); obs.disconnect(); }
+    }).observe(document.getElementById("app"), { childList: true, subtree: false });
+
+    $$(".sort-option", wrap).forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fridgeSort = btn.dataset.val;
+        sortDropdown.style.display = "none";
+        // обновить label и активный пункт
+        const label = SORT_OPTIONS.find(([v]) => v === fridgeSort)?.[1] || "";
+        $("#sort-btn-label", wrap).textContent = label;
+        $$(".sort-option", wrap).forEach((b) => {
+          const active = b.dataset.val === fridgeSort;
+          b.style.background = active ? "var(--surface-2)" : "none";
+          b.style.fontWeight = active ? "600" : "400";
+          b.style.color = active ? "var(--primary)" : "var(--ink)";
+          b.querySelector("span").innerHTML = active ? icon("check", "icon-sm") : "";
+        });
+        rerenderItems();
+      });
     });
 
     function rerenderItems() {
