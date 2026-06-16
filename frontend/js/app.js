@@ -881,12 +881,12 @@
   }
 
   // ---------------- Add products ----------------
-  async function viewAddProducts() {
+  function viewAddProducts() {
     reload = viewAddProducts;
     const v = view();
     v.innerHTML = `
       <div class="page-head">
-        <div><h1>Добавить продукты</h1><div class="sub">Поиск по каталогу — продукты из холодильника отмечены зелёным</div></div>
+        <div><h1>Добавить продукты</h1><div class="sub">Поиск по каталогу из базы продуктов</div></div>
       </div>
       <div class="card" style="max-width:680px">
         <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:12px 16px">
@@ -896,13 +896,6 @@
         </div>
         <div id="add-res" style="margin-top:12px"></div>
       </div>`;
-
-    // Загружаем холодильник один раз для подсветки
-    let fridgeMap = {};
-    try {
-      const fridgeItems = await API.fridgeItems();
-      fridgeItems.forEach((fi) => { fridgeMap[fi.name.trim().toLowerCase()] = fi; });
-    } catch (_) {}
 
     const q = document.getElementById("add-q");
     const res = document.getElementById("add-res");
@@ -916,30 +909,18 @@
         const items = await API.searchProducts(term);
         if (!items.length) { res.innerHTML = `<div class="hint" style="padding:6px 0">Ничего не найдено</div>`; return; }
 
-        // Сортируем: сначала те, что есть в холодильнике
-        const inFridge = items.filter((it) => fridgeMap[it.name.trim().toLowerCase()]);
-        const notFridge = items.filter((it) => !fridgeMap[it.name.trim().toLowerCase()]);
-        const sorted = [...inFridge, ...notFridge];
-
-        res.innerHTML = `<div class="search-results">${sorted.map((it) => {
-          const fi = fridgeMap[it.name.trim().toLowerCase()];
-          const badge = fi
-            ? `<span style="color:var(--ok);font-size:12px;font-weight:600;white-space:nowrap">имеется · ${fi.quantity}${fi.unit === "g" ? "г" : fi.unit}</span>`
-            : `<span class="cat">${num(it.calories)} ккал/100г</span>`;
-          return `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}"
-            data-cal="${it.calories}" data-p="${it.protein}" data-f="${it.fat}" data-c="${it.carbs}"
-            data-fridge-id="${fi ? fi.id : ""}" data-fridge-qty="${fi ? fi.quantity : ""}">
-            <span>${esc(it.name)}</span>${badge}</div>`;
-        }).join("")}</div>`;
+        res.innerHTML = `<div class="search-results">${items.map((it) =>
+          `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}"
+            data-cal="${it.calories}" data-p="${it.protein}" data-f="${it.fat}" data-c="${it.carbs}">
+            <span>${esc(it.name)}</span><span class="cat">${num(it.calories)} ккал/100г</span></div>`
+        ).join("")}</div>`;
 
         res.querySelectorAll(".opt").forEach((o) => o.addEventListener("click", () => {
           const prod = {
             id: +o.dataset.id, name: o.dataset.name,
             per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c }
           };
-          const fridgeId = o.dataset.fridgeId ? +o.dataset.fridgeId : null;
-          const fridgeQty = o.dataset.fridgeQty ? +o.dataset.fridgeQty : null;
-          openAddProductToMeal(prod, fridgeId, fridgeQty);
+          openAddProductToMeal(prod);
         }));
       } catch (e) { res.innerHTML = `<div class="hint err" style="padding:6px 0">${e.message}</div>`; }
     };
@@ -948,7 +929,7 @@
     q.focus();
   }
 
-  function openAddProductToMeal(prod, fridgeId, fridgeQty) {
+  function openAddProductToMeal(prod) {
     openModal({
       title: `Добавить «${prod.name}»`,
       render: (body) => {
@@ -958,10 +939,8 @@
           <div class="divider"></div>
           <div class="field"><label>Количество, г/мл</label>
             <input class="input" id="ap-amt" type="number" min="1" step="1" value="100"></div>
-          <div class="card" style="background:var(--surface-2);padding:12px" id="ap-prev"></div>
-          ${fridgeId ? `<p class="hint" style="margin-top:10px">${icon("info","icon-sm")} Будет списано из холодильника (осталось ${fridgeQty}г)</p>` : ""}`;
+          <div class="card" style="background:var(--surface-2);padding:12px" id="ap-prev"></div>`;
 
-        // Render meal slot buttons
         const slotsDiv = body.querySelector("#ap-slots");
         const meals = state.meals || [];
         meals.forEach((m, i) => {
@@ -998,12 +977,6 @@
           if (!slotId) return toast("Выберите приём пищи", "err");
           try {
             await API.addEntry({ meal_slot_id: slotId, product_id: prod.id, amount, entry_date: state.today });
-            // Если продукт из холодильника — списать
-            if (fridgeId) {
-              const newQty = (fridgeQty || 0) - amount;
-              if (newQty <= 0) { await API.fridgeDelete(fridgeId); }
-              else { await API.fridgeUpdate(fridgeId, { quantity: newQty }); }
-            }
             toast("Добавлено в дневник"); close(); viewToday();
           } catch (e) { toast(e.message, "err"); }
         });
