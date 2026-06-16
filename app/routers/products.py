@@ -70,7 +70,7 @@ def create_product(
 @router.get("/dishes", response_model=list[DishOut])
 def search_dishes(
     q: str | None = Query(default=None),
-    limit: int = Query(default=30, le=100),
+    limit: int = Query(default=200, le=500),
     db: Session = Depends(get_db),
 ):
     query = db.query(Dish)

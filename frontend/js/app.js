@@ -1066,51 +1066,25 @@
   async function viewRecipes() {
     reload = viewRecipes;
     const v = view();
-    let allDishes = [];
-    let searchTerm = "";
 
     v.innerHTML = `
       <div class="page-head">
         <div><h1>Мои рецепты</h1><div class="sub">Все созданные блюда</div></div>
         <button class="btn btn-primary" id="new-dish">${icon("plus", "icon-sm")} Создать рецепт</button>
       </div>
-      <div class="card" style="max-width:680px;margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:10px 14px">
-          ${icon("search", "icon-sm")}
-          <input class="input" id="rec-q" placeholder="Поиск по названию…" autocomplete="off"
-            style="border:none;background:transparent;padding:0 0 0 2px;font-size:15px;outline:none;flex:1;box-shadow:none">
-        </div>
-      </div>
       <div id="rec-list">${spinner()}</div>`;
 
     const list = $("#rec-list", v);
-    const searchInput = $("#rec-q", v);
-
-    const render = (dishes) => {
-      if (!dishes.length) {
-        list.innerHTML = `<div class="card">${emptyState("chef", searchTerm ? "Ничего не найдено" : "Рецептов пока нет — создайте первый")}</div>`;
-        return;
-      }
-      list.innerHTML = `<div class="grid grid-meals">${dishes.map((d) => dishCard(d)).join("")}</div>`;
-    };
 
     const load = async () => {
       list.innerHTML = spinner();
       try {
-        allDishes = await API.searchDishes("");
-        render(allDishes);
+        const dishes = await API.searchDishes("");
+        list.innerHTML = dishes.length
+          ? `<div class="grid grid-meals">${dishes.map((d) => dishCard(d)).join("")}</div>`
+          : `<div class="card">${emptyState("chef", "Рецептов пока нет — создайте первый")}</div>`;
       } catch (e) { list.innerHTML = emptyState("info", e.message); }
     };
-
-    let timer = null;
-    searchInput.addEventListener("input", () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        searchTerm = searchInput.value.trim().toLowerCase();
-        const filtered = allDishes.filter((d) => d.name.toLowerCase().includes(searchTerm));
-        render(filtered);
-      }, 200);
-    });
 
     $("#new-dish", v).addEventListener("click", () => openCreateDish(load));
     load();
