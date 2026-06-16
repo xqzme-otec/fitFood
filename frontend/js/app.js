@@ -417,12 +417,20 @@
         q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(doSearch, 250); });
         doSearch();
 
-        function renderPick() {
+        async function renderPick() {
           const unitLabel = selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г";
           const defaultAmt = selected.unit === "pcs" ? 1 : 100;
           const maxAttr = selected.maxQty != null ? `max="${selected.maxQty}"` : "";
           const dish = mode === "dish" ? dishDetailsCache[selected.id] : null;
           const ings = dish?.ingredients || [];
+
+          // Загружаем холодильник для проверки наличия ингредиентов
+          if (ings.length && !fridgeCache) {
+            try { fridgeCache = await API.fridgeItems(); } catch { fridgeCache = []; }
+          }
+          const fridgeByProductId = Object.fromEntries(
+            (fridgeCache || []).filter((fi) => fi.product_id).map((fi) => [fi.product_id, fi])
+          );
 
           pick.innerHTML = `
             <div class="divider"></div>
@@ -438,17 +446,20 @@
                 <span id="m-ings-chevron" style="transition:transform .2s">${icon("chevron-down", "icon-sm")}</span>
               </button>
               <div id="m-ings-list" style="display:none;border-top:1px solid var(--line-2)">
-                ${ings.map((ing) => `
-                  <div class="list-item" data-ing-id="${ing.product_id}" data-ing-grams="${ing.grams}" style="padding:8px 14px">
-                    <span class="grow" style="font-size:13px">${esc(ing.name)}</span>
-                    <span class="ing-qty muted" style="font-size:13px;white-space:nowrap">—</span>
-                  </div>`).join("")}
+                ${ings.map((ing) => {
+                  const inFridge = !!fridgeByProductId[ing.product_id];
+                  const color = inFridge ? "var(--ok)" : "var(--danger,#DC2626)";
+                  const statusText = inFridge ? "есть" : "нет";
+                  return `<div class="list-item" data-ing-id="${ing.product_id}" data-ing-grams="${ing.grams}" style="padding:8px 14px">
+                    <span class="grow" style="font-size:13px;color:${color};font-weight:600">${esc(ing.name)}</span>
+                    <span style="font-size:12px;color:${color};margin-right:8px">${statusText}</span>
+                    <span class="ing-qty" style="font-size:13px;color:${color};white-space:nowrap;font-weight:600">—</span>
+                  </div>`;
+                }).join("")}
               </div>
             </div>` : ""}`;
 
           const amt = $("#m-amt", pick), prev = $("#m-prev", pick);
-
-          // Раскрывающийся список
           const toggle = pick.querySelector("#m-ings-toggle");
           const ingsList = pick.querySelector("#m-ings-list");
           const chevron = pick.querySelector("#m-ings-chevron");
@@ -473,7 +484,6 @@
                 <span class="kcal-tag">${selected.hasKbju ? num(p.calories * f) + " ккал" : "—"}</span>
               </div>${kbjuLine}`;
 
-            // Обновляем количества ингредиентов пропорционально введённым граммам
             if (ings.length && dish?.total_grams) {
               const scale = qty / dish.total_grams;
               pick.querySelectorAll("[data-ing-grams]").forEach((row) => {
@@ -523,31 +533,6 @@
                 else missing.push({ name: ing.name, needed });
               });
 
-              if (missing.length > 0) {
-                const ok = await new Promise((resolve) => {
-                  openModal({
-                    title: "Не хватает продуктов", width: "420px",
-                    render: (b) => {
-                      b.innerHTML = `
-                        <p style="margin:0 0 12px">Этих ингредиентов нет в холодильнике:</p>
-                        <div class="list">${missing.map((m) =>
-                          `<div class="list-item">
-                            <span class="grow">${esc(m.name)}</span>
-                            <span class="muted" style="font-size:13px">${m.needed} г</span>
-                          </div>`).join("")}
-                        </div>
-                        <p style="margin:12px 0 0;color:var(--muted);font-size:13px">Всё равно добавить блюдо в рацион?</p>`;
-                    },
-                    footer: (f, close) => {
-                      f.innerHTML = `<button class="btn btn-ghost" data-no>Отмена</button>
-                        <button class="btn btn-primary" data-yes>Добавить</button>`;
-                      f.querySelector("[data-no]").addEventListener("click", () => { close(); resolve(false); });
-                      f.querySelector("[data-yes]").addEventListener("click", () => { close(); resolve(true); });
-                    },
-                  });
-                });
-                if (!ok) return;
-              }
 
               try {
                 await API.addEntry(payload);
