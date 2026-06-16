@@ -993,7 +993,7 @@
         <div><h1>Рекомендации рецептов</h1><div class="sub">По остатку КБЖУ и содержимому холодильника</div></div>
         <button class="btn btn-primary" id="new-dish">${icon("plus", "icon-sm")} Создать рецепт</button>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:24px;margin-bottom:20px;position:relative">
+      <div style="display:flex;align-items:center;gap:10px;margin-top:48px;margin-bottom:20px;position:relative">
         <div style="position:relative;display:inline-block">
           <button class="btn btn-ghost" id="slot-btn" style="border:1px solid var(--line-2);gap:6px">
             ${icon("filter", "icon-sm")}
