@@ -1084,13 +1084,11 @@
           list.innerHTML = `<div class="card">${emptyState("chef", "Рецептов пока нет — создайте первый")}</div>`;
           return;
         }
-        list.innerHTML = `<div class="grid grid-meals">${dishes.map((d) => dishCard(d)).join("")}</div>`;
-        list.querySelectorAll(".dish-card").forEach((card) => {
-          const dish = dishes.find((d) => d.id === +card.dataset.dishId);
-          card.addEventListener("mouseenter", () => { card.style.boxShadow = "0 4px 16px rgba(0,0,0,.1)"; card.style.transform = "translateY(-2px)"; });
-          card.addEventListener("mouseleave", () => { card.style.boxShadow = ""; card.style.transform = ""; });
-          card.addEventListener("click", () => openDishDetail(dish));
-        });
+        const grid = document.createElement("div");
+        grid.className = "grid grid-meals";
+        dishes.forEach((d) => grid.appendChild(dishCard(d)));
+        list.innerHTML = "";
+        list.appendChild(grid);
       } catch (e) { list.innerHTML = emptyState("info", e.message); }
     };
 
@@ -1100,18 +1098,26 @@
 
   function dishCard(d) {
     const per = d.per_100g || {};
-    return `<div class="card dish-card" data-dish-id="${d.id}" style="cursor:pointer;transition:box-shadow .15s,transform .15s">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px">
-        <h3 style="margin:0;font-size:15px;font-weight:700;line-height:1.3">${esc(d.name)}</h3>
-        <span class="kcal-tag" style="white-space:nowrap;flex:none">${num(per.calories || 0)} ккал</span>
+    const el = document.createElement("div");
+    el.className = "card";
+    el.innerHTML = `
+      <div class="section-title">
+        <h3>${esc(d.name)}</h3>
       </div>
+      <div class="stat" style="margin-bottom:12px">
+        <div class="v">${num(per.calories || 0)} <span class="k" style="font-size:14px">ккал</span></div>
+        <div class="k">на 100 г · ${num(d.total_grams || 0)} г всего</div>
+      </div>
+      <div class="divider" style="margin:0 0 12px"></div>
+      <div class="muted" style="font-size:12px;margin-bottom:4px">БЖУ на 100 г</div>
       <div class="flex gap-8" style="flex-wrap:wrap">
         <span class="chip">Б ${num(per.protein || 0)}</span>
         <span class="chip">Ж ${num(per.fat || 0)}</span>
         <span class="chip">У ${num(per.carbs || 0)}</span>
-        ${d.total_grams ? `<span class="chip">${num(d.total_grams)} г</span>` : ""}
-      </div>
-    </div>`;
+      </div>`;
+    el.style.cursor = "pointer";
+    el.addEventListener("click", () => openDishDetail(d));
+    return el;
   }
 
   function openDishDetail(d) {
