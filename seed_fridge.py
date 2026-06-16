@@ -151,24 +151,11 @@ def main():
         no_match = []
 
         for name, category, qty, unit, days, cal, prot, fat, carbs in FRIDGE_ITEMS:
-            # Ищем продукт в каталоге — сначала точное совпадение
             product = all_products.get(name)
 
             if product is None:
-                # Если не нашли — создаём новый продукт в каталоге с нашими КБЖУ
-                product = Product(
-                    name=name,
-                    category=category,
-                    unit=unit if unit in ("g", "ml") else "g",
-                    calories=cal,
-                    protein=prot,
-                    fat=fat,
-                    carbs=carbs,
-                )
-                db.add(product)
-                db.flush()
-                all_products[name] = product
                 no_match.append(name)
+                continue  # пропускаем — продукта нет в CSV-каталоге
 
             db.add(FridgeItem(
                 user_id=user.id,
@@ -184,7 +171,7 @@ def main():
         db.commit()
         print(f"[ok] Добавлено {added} продуктов в холодильник {EMAIL}")
         if no_match:
-            print(f"[+] Создано {len(no_match)} новых продуктов в каталоге: {', '.join(no_match[:5])}{'...' if len(no_match) > 5 else ''}")
+            print(f"[skip] Пропущено {len(no_match)} (нет в каталоге): {', '.join(no_match)}")
     finally:
         db.close()
 
