@@ -1080,9 +1080,17 @@
       list.innerHTML = spinner();
       try {
         const dishes = await API.searchDishes("");
-        list.innerHTML = dishes.length
-          ? `<div class="grid grid-meals">${dishes.map((d) => dishCard(d)).join("")}</div>`
-          : `<div class="card">${emptyState("chef", "Рецептов пока нет — создайте первый")}</div>`;
+        if (!dishes.length) {
+          list.innerHTML = `<div class="card">${emptyState("chef", "Рецептов пока нет — создайте первый")}</div>`;
+          return;
+        }
+        list.innerHTML = `<div class="grid grid-meals">${dishes.map((d) => dishCard(d)).join("")}</div>`;
+        list.querySelectorAll(".dish-card").forEach((card) => {
+          const dish = dishes.find((d) => d.id === +card.dataset.dishId);
+          card.addEventListener("mouseenter", () => { card.style.boxShadow = "0 4px 16px rgba(0,0,0,.1)"; card.style.transform = "translateY(-2px)"; });
+          card.addEventListener("mouseleave", () => { card.style.boxShadow = ""; card.style.transform = ""; });
+          card.addEventListener("click", () => openDishDetail(dish));
+        });
       } catch (e) { list.innerHTML = emptyState("info", e.message); }
     };
 
@@ -1092,21 +1100,53 @@
 
   function dishCard(d) {
     const per = d.per_100g || {};
-    const ings = (d.ingredients || []).map((i) => esc(i.name)).join(", ");
-    return `<div class="card" style="margin-bottom:12px">
-      <div class="section-title">
-        <h3>${esc(d.name)}</h3>
-        <span class="kcal-tag">${num(per.calories || 0)} ккал/100г</span>
+    return `<div class="card dish-card" data-dish-id="${d.id}" style="cursor:pointer;transition:box-shadow .15s,transform .15s">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px">
+        <h3 style="margin:0;font-size:15px;font-weight:700;line-height:1.3">${esc(d.name)}</h3>
+        <span class="kcal-tag" style="white-space:nowrap;flex:none">${num(per.calories || 0)} ккал</span>
       </div>
-      ${d.description ? `<div class="muted" style="font-size:13px;margin-bottom:8px">${esc(d.description)}</div>` : ""}
-      <div class="flex gap-8" style="flex-wrap:wrap;margin-bottom:8px">
-        <span class="chip c-p">Б ${num(per.protein || 0)}</span>
-        <span class="chip c-f">Ж ${num(per.fat || 0)}</span>
-        <span class="chip c-u">У ${num(per.carbs || 0)}</span>
+      <div class="flex gap-8" style="flex-wrap:wrap">
+        <span class="chip">Б ${num(per.protein || 0)}</span>
+        <span class="chip">Ж ${num(per.fat || 0)}</span>
+        <span class="chip">У ${num(per.carbs || 0)}</span>
         ${d.total_grams ? `<span class="chip">${num(d.total_grams)} г</span>` : ""}
       </div>
-      ${ings ? `<div class="muted" style="font-size:12px">${icon("list", "icon-sm")} ${ings}</div>` : ""}
     </div>`;
+  }
+
+  function openDishDetail(d) {
+    const per = d.per_100g || {};
+    const ings = d.ingredients || [];
+    openModal({
+      title: d.name, width: "480px",
+      render: (body) => {
+        body.innerHTML = `
+          ${d.description ? `<p class="muted" style="margin:0 0 14px">${esc(d.description)}</p>` : ""}
+          <div class="card" style="background:var(--surface-2);padding:12px;margin-bottom:16px">
+            <div class="flex between" style="margin-bottom:6px">
+              <b>На 100 г</b><span class="kcal-tag">${num(per.calories || 0)} ккал</span>
+            </div>
+            <div class="flex gap-8" style="flex-wrap:wrap">
+              <span class="chip">Б ${num(per.protein || 0)}</span>
+              <span class="chip">Ж ${num(per.fat || 0)}</span>
+              <span class="chip">У ${num(per.carbs || 0)}</span>
+              ${d.total_grams ? `<span class="chip">${num(d.total_grams)} г всего</span>` : ""}
+            </div>
+          </div>
+          ${ings.length ? `
+            <div style="font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Ингредиенты</div>
+            <div class="list">${ings.map((i) => `
+              <div class="list-item">
+                <span class="grow">${esc(i.name)}</span>
+                <span class="muted" style="font-size:13px">${num(i.grams)} г</span>
+              </div>`).join("")}
+            </div>` : ""}`;
+      },
+      footer: (f, close) => {
+        f.innerHTML = `<button class="btn btn-ghost" data-x>Закрыть</button>`;
+        f.querySelector("[data-x]").addEventListener("click", close);
+      },
+    });
   }
 
   // -------- Reusable product search picker (returns chosen product via onPick) --------
