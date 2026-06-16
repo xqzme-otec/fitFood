@@ -440,16 +440,24 @@
     const wrap = $("#groups", v);
     if (!groups.length) { wrap.innerHTML = `<div class="card">${emptyState("fridge", "Холодильник пуст. Добавьте продукт или отсканируйте чек.")}</div>`; return; }
 
-    // Активная вкладка-категория (если прежняя пропала — берём первую).
-    if (!fridgeCat || !groups.some((g) => g.category === fridgeCat)) fridgeCat = groups[0].category;
-    const active = groups.find((g) => g.category === fridgeCat) || groups[0];
+    const ALL_CAT = "__all__";
+    const allItems = groups.flatMap((g) => g.items);
+    // Виртуальная группа «Все» + реальные группы
+    const allGroups = [{ category: ALL_CAT, items: allItems }, ...groups];
+
+    // Активная вкладка (если прежняя пропала — «Все»)
+    if (!fridgeCat || !allGroups.some((g) => g.category === fridgeCat)) fridgeCat = ALL_CAT;
+    const active = allGroups.find((g) => g.category === fridgeCat) || allGroups[0];
 
     wrap.innerHTML = `
       <div class="tabs" id="cat-tabs"></div>
       <div class="grid grid-meals" id="cat-items" style="margin-top:18px"></div>`;
     const tabs = $("#cat-tabs", wrap);
-    tabs.innerHTML = groups.map((g) => `<button class="tab ${g.category === fridgeCat ? "active" : ""}" data-cat="${esc(g.category)}">
-      ${esc(g.category)} <span class="cnt">${g.items.length}</span></button>`).join("");
+    tabs.innerHTML = allGroups.map((g) => {
+      const label = g.category === ALL_CAT ? "Все" : g.category;
+      return `<button class="tab ${g.category === fridgeCat ? "active" : ""}" data-cat="${esc(g.category)}">
+        ${esc(label)} <span class="cnt">${g.items.length}</span></button>`;
+    }).join("");
     $$(".tab", tabs).forEach((b) => b.addEventListener("click", () => { fridgeCat = b.dataset.cat; viewFridge(); }));
 
     const grid = $("#cat-items", wrap);
