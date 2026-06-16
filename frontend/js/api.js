@@ -92,6 +92,7 @@
     deleteEntry: (id) => request("/diary/entries/" + id, { method: "DELETE" }),
     daySummary: (day) => request("/diary/summary" + (day ? "?day=" + day : "")),
 
+    fridgeItems: () => request("/fridge/items"),
     fridgeGrouped: () => request("/fridge/grouped"),
     fridgeAdd: (item) => request("/fridge/items", { method: "POST", body: item }),
     fridgeUpdate: (id, patch) => request("/fridge/items/" + id, { method: "PATCH", body: patch }),

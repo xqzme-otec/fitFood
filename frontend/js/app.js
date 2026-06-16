@@ -284,52 +284,121 @@
   // -------- Add food modal --------
   function openAddFood(slot) {
     let mode = "product", selected = null, timer = null;
+    let fridgeCache = null; // загружаем один раз
+
     openModal({
       title: `Добавить в «${slot.name}»`,
       render: (body) => {
         body.innerHTML = `
-          <div class="seg" id="m-seg"><button class="active" data-mode="product">Продукт</button><button data-mode="dish">Блюдо</button></div>
-          <div class="field"><label>Поиск</label>
+          <div class="seg" id="m-seg">
+            <button class="active" data-mode="product">Продукт</button>
+            <button data-mode="dish">Блюдо</button>
+            <button data-mode="fridge">🧊 Холодильник</button>
+          </div>
+          <div class="field" style="margin-top:12px"><label>Поиск</label>
             <input class="input" id="m-q" placeholder="Например, куриное филе" autocomplete="off">
             <div id="m-res"></div></div>
           <div id="m-pick"></div>`;
+
         const q = $("#m-q", body), res = $("#m-res", body), pick = $("#m-pick", body);
 
         $("#m-seg", body).addEventListener("click", (e) => {
           const b = e.target.closest("[data-mode]"); if (!b) return;
           mode = b.dataset.mode; selected = null; pick.innerHTML = ""; res.innerHTML = "";
           $$("#m-seg button", body).forEach((x) => x.classList.toggle("active", x === b));
-          if (q.value.trim()) doSearch();
+          q.placeholder = mode === "fridge" ? "Поиск по холодильнику" : "Например, куриное филе";
+          doSearch();
         });
 
-        const doSearch = async () => {
-          const term = q.value.trim();
-          const items = mode === "product" ? await API.searchProducts(term) : await API.searchDishes(term);
-          res.innerHTML = items.length ? `<div class="search-results">${items.map((it) => {
-            const per = mode === "product" ? it : it.per_100g;
-            return `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}"
-              data-cal="${per.calories}" data-p="${per.protein}" data-f="${per.fat}" data-c="${per.carbs}">
-              <span>${esc(it.name)}</span><span class="cat">${num(per.calories)} ккал/100г</span></div>`;
-          }).join("")}</div>` : `<div class="hint" style="padding:6px">Ничего не найдено</div>`;
+        const renderResults = (items) => {
+          if (!items.length) { res.innerHTML = `<div class="hint" style="padding:6px 0">Ничего не найдено</div>`; return; }
+          res.innerHTML = `<div class="search-results">${items.map((it) => {
+            const per = it._per100 || {};
+            const hasKbju = per.calories != null;
+            return `<div class="opt" data-id="${it.id}" data-fridge-id="${it._fridgeId || ""}"
+              data-name="${esc(it.name)}" data-unit="${esc(it._unit || "g")}" data-max="${it._max || ""}"
+              data-cal="${per.calories || 0}" data-p="${per.protein || 0}" data-f="${per.fat || 0}" data-c="${per.carbs || 0}">
+              <span>${esc(it.name)}${it._unit === "pcs" ? " (шт)" : ""}</span>
+              <span class="cat">${hasKbju ? num(per.calories) + " ккал/100г" : "КБЖУ неизв."} ${it._max != null ? "· " + num(it._max) + (it._unit === "ml" ? " мл" : it._unit === "pcs" ? " шт" : " г") + " в холодильнике" : ""}</span>
+            </div>`;
+          }).join("")}</div>`;
+
           $$(".opt", res).forEach((o) => o.addEventListener("click", () => {
-            selected = { id: +o.dataset.id, name: o.dataset.name,
-              per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c } };
+            const hasCal = +o.dataset.cal > 0 || +o.dataset.p > 0;
+            selected = {
+              id: +o.dataset.id,
+              fridgeId: o.dataset.fridgeId ? +o.dataset.fridgeId : null,
+              name: o.dataset.name,
+              unit: o.dataset.unit,
+              maxQty: o.dataset.max ? +o.dataset.max : null,
+              per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c },
+              hasKbju: hasCal,
+            };
             res.innerHTML = ""; q.value = selected.name; renderPick();
           }));
         };
+
+        const doSearch = async () => {
+          const term = q.value.trim();
+
+          if (mode === "fridge") {
+            if (!fridgeCache) {
+              res.innerHTML = `<div class="hint" style="padding:6px 0">Загрузка…</div>`;
+              try { fridgeCache = await API.fridgeItems(); } catch { fridgeCache = []; }
+            }
+            const filtered = fridgeCache.filter((it) =>
+              !term || it.name.toLowerCase().includes(term.toLowerCase())
+            );
+            const mapped = filtered.map((it) => ({
+              id: it.product_id || 0,
+              name: it.name,
+              _fridgeId: it.id,
+              _unit: it.unit,
+              _max: it.quantity,
+              _per100: it.kbju_100g || {},
+            }));
+            renderResults(mapped);
+            return;
+          }
+
+          const items = mode === "product" ? await API.searchProducts(term) : await API.searchDishes(term);
+          renderResults(items.map((it) => ({
+            id: it.id,
+            name: it.name,
+            _unit: "g",
+            _per100: mode === "product" ? it : it.per_100g,
+          })));
+        };
+
         q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(doSearch, 250); });
+        doSearch(); // показать список сразу при открытии
 
         function renderPick() {
+          const unitLabel = selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г";
+          const defaultAmt = selected.unit === "pcs" ? 1 : 100;
+          const maxAttr = selected.maxQty != null ? `max="${selected.maxQty}"` : "";
           pick.innerHTML = `
             <div class="divider"></div>
-            <div class="field"><label>Количество, г/мл</label>
-              <input class="input" id="m-amt" type="number" min="1" step="1" value="100"></div>
+            <div class="field">
+              <label>Количество, ${unitLabel}${selected.maxQty != null ? ` (в холодильнике: ${num(selected.maxQty)} ${unitLabel})` : ""}</label>
+              <input class="input" id="m-amt" type="number" min="1" step="${selected.unit === "pcs" ? 1 : 1}" value="${defaultAmt}" ${maxAttr}>
+            </div>
             <div class="card" style="background:var(--surface-2);padding:12px" id="m-prev"></div>`;
+
           const amt = $("#m-amt", pick), prev = $("#m-prev", pick);
           const upd = () => {
-            const f = (+amt.value || 0) / 100;
-            prev.innerHTML = `<div class="flex between"><b>${esc(selected.name)}</b><span class="kcal-tag">${num(selected.per100.calories * f)} ккал</span></div>
-              <div class="muted" style="font-size:13px;margin-top:4px">Б ${num(selected.per100.protein * f)} · Ж ${num(selected.per100.fat * f)} · У ${num(selected.per100.carbs * f)}</div>`;
+            const qty = +amt.value || 0;
+            const f = selected.unit === "pcs" ? qty : qty / 100;
+            const p = selected.per100;
+            const kbjuLine = selected.hasKbju
+              ? `<div class="muted" style="font-size:13px;margin-top:4px">Б ${num(p.protein * f)} · Ж ${num(p.fat * f)} · У ${num(p.carbs * f)}</div>`
+              : `<div class="muted" style="font-size:13px;margin-top:4px">КБЖУ неизвестно</div>`;
+            prev.innerHTML = `
+              <div class="flex between">
+                <b>${esc(selected.name)}</b>
+                <span class="kcal-tag">${selected.hasKbju ? num(p.calories * f) + " ккал" : "—"}</span>
+              </div>${kbjuLine}
+              ${selected.fridgeId ? `<div style="font-size:12px;margin-top:6px;color:var(--primary)">📦 Спишется из холодильника</div>` : ""}`;
           };
           amt.addEventListener("input", upd); upd();
         }
@@ -339,12 +408,31 @@
         f.querySelector("[data-x]").addEventListener("click", close);
         f.querySelector("[data-ok]").addEventListener("click", async () => {
           if (!selected) return toast("Выберите продукт или блюдо", "err");
+          if (mode === "fridge" && !selected.id) return toast("Продукт не привязан к каталогу, КБЖУ неизвестно", "err");
           const amount = +document.getElementById("m-amt").value;
           if (!amount || amount <= 0) return toast("Укажите количество", "err");
+          if (selected.maxQty != null && amount > selected.maxQty)
+            return toast(`В холодильнике только ${num(selected.maxQty)} ${selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г"}`, "err");
+
           const payload = { meal_slot_id: slot.meal_slot_id || slot.id, amount, entry_date: state.today };
-          payload[mode === "product" ? "product_id" : "dish_id"] = selected.id;
-          try { await API.addEntry(payload); toast("Добавлено в дневник"); close(); viewToday(); }
-          catch (e) { toast(e.message, "err"); }
+          if (mode === "dish") payload.dish_id = selected.id;
+          else payload.product_id = selected.id;
+
+          try {
+            await API.addEntry(payload);
+
+            // Списываем из холодильника
+            if (selected.fridgeId) {
+              const remaining = (selected.maxQty || 0) - amount;
+              if (remaining <= 0) await API.fridgeDelete(selected.fridgeId);
+              else await API.fridgeUpdate(selected.fridgeId, { quantity: remaining });
+              fridgeCache = null; // сбросить кеш
+            }
+
+            toast("Добавлено в дневник" + (selected.fridgeId ? " и списано из холодильника" : ""));
+            close();
+            viewToday();
+          } catch (e) { toast(e.message, "err"); }
         });
       },
     });
