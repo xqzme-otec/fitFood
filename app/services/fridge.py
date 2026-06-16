@@ -163,6 +163,7 @@ def serialize_item(item: FridgeItem) -> dict:
         "price": item.price,
         "expiry_status": status,
         "days_left": days_left,
+        "added_at": item.added_at.isoformat() if item.added_at else None,
         "kbju_100g": kbju_100g,
         "kbju_total": kbju_total,
     }

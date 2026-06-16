@@ -7,6 +7,10 @@
   const state = { user: null, profile: null, targets: null, meals: [], today: todayStr() };
   let reload = () => {};
   let fridgeCat = null; // активная категория-вкладка в холодильнике
+  const FRIDGE_PAGE_SIZE = 15;
+  let fridgePage = 0;        // сколько страниц уже отрисовано
+  let fridgeObserver = null; // IntersectionObserver для infinite scroll
+  let fridgeSort = "added_desc"; // текущая сортировка
 
   function todayStr() { return new Date().toISOString().slice(0, 10); }
   function go(hash) { if (location.hash === hash) render(); else location.hash = hash; }
@@ -440,20 +444,177 @@
     const wrap = $("#groups", v);
     if (!groups.length) { wrap.innerHTML = `<div class="card">${emptyState("fridge", "Холодильник пуст. Добавьте продукт или отсканируйте чек.")}</div>`; return; }
 
-    // Активная вкладка-категория (если прежняя пропала — берём первую).
-    if (!fridgeCat || !groups.some((g) => g.category === fridgeCat)) fridgeCat = groups[0].category;
-    const active = groups.find((g) => g.category === fridgeCat) || groups[0];
+    const ALL_CAT = "__all__";
+    const allItems = groups.flatMap((g) => g.items);
+    const allGroups = [{ category: ALL_CAT, items: allItems }, ...groups];
 
+    if (!fridgeCat || !allGroups.some((g) => g.category === fridgeCat)) fridgeCat = ALL_CAT;
+
+    const SORT_OPTIONS = [
+      ["added_desc",   "Дата добавления (новые)"],
+      ["added_asc",    "Дата добавления (старые)"],
+      ["expiry_asc",   "Срок годности (раньше истекает)"],
+      ["expiry_desc",  "Срок годности (позже истекает)"],
+      ["calories_asc", "Калорийность (возрастание)"],
+      ["calories_desc","Калорийность (убывание)"],
+      ["qty_asc",      "Количество (возрастание)"],
+      ["qty_desc",     "Количество (убывание)"],
+    ];
+
+    function applyFiltersAndSort(items) {
+      let result = [...items];
+      result.sort((a, b) => {
+        switch (fridgeSort) {
+          case "added_asc":    return (a.added_at || "") > (b.added_at || "") ? 1 : -1;
+          case "added_desc":   return (a.added_at || "") < (b.added_at || "") ? 1 : -1;
+          case "expiry_asc": {
+            const da = a.expiry_date ? new Date(a.expiry_date) : new Date("9999-12-31");
+            const db = b.expiry_date ? new Date(b.expiry_date) : new Date("9999-12-31");
+            return da - db;
+          }
+          case "expiry_desc": {
+            const da = a.expiry_date ? new Date(a.expiry_date) : new Date("0000-01-01");
+            const db = b.expiry_date ? new Date(b.expiry_date) : new Date("0000-01-01");
+            return db - da;
+          }
+          case "calories_asc":  return (a.kbju_100g?.calories || 0) - (b.kbju_100g?.calories || 0);
+          case "calories_desc": return (b.kbju_100g?.calories || 0) - (a.kbju_100g?.calories || 0);
+          case "qty_asc":  return a.quantity - b.quantity;
+          case "qty_desc": return b.quantity - a.quantity;
+          default: return 0;
+        }
+      });
+      return result;
+    }
+
+    const currentSortLabel = SORT_OPTIONS.find(([v]) => v === fridgeSort)?.[1] || "Сортировка";
     wrap.innerHTML = `
       <div class="tabs" id="cat-tabs"></div>
-      <div class="grid grid-meals" id="cat-items" style="margin-top:18px"></div>`;
-    const tabs = $("#cat-tabs", wrap);
-    tabs.innerHTML = groups.map((g) => `<button class="tab ${g.category === fridgeCat ? "active" : ""}" data-cat="${esc(g.category)}">
-      ${esc(g.category)} <span class="cnt">${g.items.length}</span></button>`).join("");
-    $$(".tab", tabs).forEach((b) => b.addEventListener("click", () => { fridgeCat = b.dataset.cat; viewFridge(); }));
+      <div style="display:flex;align-items:center;gap:10px;margin-top:24px;position:relative">
+        <div style="position:relative;display:inline-block">
+          <button class="btn btn-ghost" id="sort-btn" style="border:1px solid var(--line-2);gap:6px">
+            ${icon("filter", "icon-sm")}
+            <span id="sort-btn-label">${esc(currentSortLabel)}</span>
+            ${icon("chevron-down", "icon-sm")}
+          </button>
+          <div id="sort-dropdown" style="
+            display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:200;
+            background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+            box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:260px;padding:8px 0;
+          ">
+            <div style="padding:8px 14px 6px;font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em">Сортировка</div>
+            ${SORT_OPTIONS.map(([v, l]) => `
+              <button class="sort-option" data-val="${v}" style="
+                display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;
+                background:none;border:none;cursor:pointer;font-size:14px;color:var(--ink);
+                text-align:left;transition:background .12s;
+                ${fridgeSort === v ? "background:var(--surface-2);font-weight:600;color:var(--primary);" : ""}
+              ">
+                <span style="width:16px;flex:none">${fridgeSort === v ? icon("check", "icon-sm") : ""}</span>
+                ${esc(l)}
+              </button>`).join("")}
+          </div>
+        </div>
+        <span class="muted" id="filter-count" style="font-size:13px"></span>
+      </div>
+      <div class="grid grid-meals" id="cat-items" style="margin-top:14px"></div>
+      <div id="fridge-sentinel" style="height:1px"></div>`;
 
-    const grid = $("#cat-items", wrap);
-    active.items.forEach((it) => grid.appendChild(fridgeCard(it)));
+    const tabs = $("#cat-tabs", wrap);
+    tabs.innerHTML = allGroups.map((g) => {
+      const label = g.category === ALL_CAT ? "Все" : g.category;
+      return `<button class="tab ${g.category === fridgeCat ? "active" : ""}" data-cat="${esc(g.category)}">
+        ${esc(label)} <span class="cnt">${g.items.length}</span></button>`;
+    }).join("");
+    $$(".tab", tabs).forEach((b) => b.addEventListener("click", () => {
+      fridgeCat = b.dataset.cat;
+      fridgePage = 0;
+      if (fridgeObserver) { fridgeObserver.disconnect(); fridgeObserver = null; }
+      viewFridge();
+    }));
+
+    const sortBtn = $("#sort-btn", wrap);
+    const sortDropdown = $("#sort-dropdown", wrap);
+
+    sortBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = sortDropdown.style.display === "block";
+      sortDropdown.style.display = open ? "none" : "block";
+    });
+
+    // Закрывать дропдаун при клике вне; снимаем слушатель когда wrap уходит из DOM
+    const closeSortDropdown = () => { sortDropdown.style.display = "none"; };
+    document.addEventListener("click", closeSortDropdown);
+    new MutationObserver((_, obs) => {
+      if (!wrap.isConnected) { document.removeEventListener("click", closeSortDropdown); obs.disconnect(); }
+    }).observe(document.getElementById("app"), { childList: true, subtree: false });
+
+    $$(".sort-option", wrap).forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        fridgeSort = btn.dataset.val;
+        sortDropdown.style.display = "none";
+        // обновить label и активный пункт
+        const label = SORT_OPTIONS.find(([v]) => v === fridgeSort)?.[1] || "";
+        $("#sort-btn-label", wrap).textContent = label;
+        $$(".sort-option", wrap).forEach((b) => {
+          const active = b.dataset.val === fridgeSort;
+          b.style.background = active ? "var(--surface-2)" : "none";
+          b.style.fontWeight = active ? "600" : "400";
+          b.style.color = active ? "var(--primary)" : "var(--ink)";
+          b.querySelector("span").innerHTML = active ? icon("check", "icon-sm") : "";
+        });
+        rerenderItems();
+      });
+    });
+
+    function rerenderItems() {
+      fridgePage = 0;
+      if (fridgeObserver) { fridgeObserver.disconnect(); fridgeObserver = null; }
+      const grid = $("#cat-items", wrap);
+      grid.innerHTML = "";
+      // восстановить sentinel если его убрали
+      if (!$("#fridge-sentinel", wrap)) {
+        const s = document.createElement("div");
+        s.id = "fridge-sentinel"; s.style.height = "1px";
+        wrap.appendChild(s);
+      }
+      startPagination();
+    }
+
+    function startPagination() {
+      const active = allGroups.find((g) => g.category === fridgeCat) || allGroups[0];
+      const items = applyFiltersAndSort(active.items);
+      const grid = $("#cat-items", wrap);
+      const countEl = $("#filter-count", wrap);
+      countEl.textContent = `${items.length} продуктов`;
+
+      function renderNextPage() {
+        const start = fridgePage * FRIDGE_PAGE_SIZE;
+        const slice = items.slice(start, start + FRIDGE_PAGE_SIZE);
+        slice.forEach((it) => grid.appendChild(fridgeCard(it)));
+        fridgePage++;
+        const sentinel = $("#fridge-sentinel", wrap);
+        if (fridgePage * FRIDGE_PAGE_SIZE >= items.length) {
+          if (fridgeObserver) { fridgeObserver.disconnect(); fridgeObserver = null; }
+          if (sentinel) sentinel.remove();
+        }
+      }
+
+      renderNextPage();
+
+      if (items.length > FRIDGE_PAGE_SIZE) {
+        if (fridgeObserver) fridgeObserver.disconnect();
+        fridgeObserver = new IntersectionObserver((entries) => {
+          if (entries[0].isIntersecting) renderNextPage();
+        }, { rootMargin: "120px" });
+        const sentinel = $("#fridge-sentinel", wrap);
+        if (sentinel) fridgeObserver.observe(sentinel);
+      }
+    }
+
+    fridgePage = 0;
+    startPagination();
   }
 
   function fridgeCard(it) {
