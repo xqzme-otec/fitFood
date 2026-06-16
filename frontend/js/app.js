@@ -1086,7 +1086,7 @@
         }
         const grid = document.createElement("div");
         grid.className = "grid grid-meals";
-        dishes.forEach((d) => grid.appendChild(dishCard(d)));
+        dishes.forEach((d) => grid.appendChild(dishCard(d, load)));
         list.innerHTML = "";
         list.appendChild(grid);
       } catch (e) { list.innerHTML = emptyState("info", e.message); }
@@ -1096,13 +1096,18 @@
     load();
   }
 
-  function dishCard(d) {
+  function dishCard(d, onRefresh) {
     const per = d.per_100g || {};
     const el = document.createElement("div");
     el.className = "card";
+    el.style.cssText = "cursor:pointer;transition:box-shadow .15s,transform .15s";
     el.innerHTML = `
       <div class="section-title">
         <h3>${esc(d.name)}</h3>
+        <div class="flex gap-8">
+          <button class="icon-btn" data-edit aria-label="Изменить">${icon("edit", "icon-sm")}</button>
+          <button class="icon-btn" data-del aria-label="Удалить">${icon("trash", "icon-sm")}</button>
+        </div>
       </div>
       <div class="stat" style="margin-bottom:12px">
         <div class="v">${num(per.calories || 0)} <span class="k" style="font-size:14px">ккал</span></div>
@@ -1115,8 +1120,24 @@
         <span class="chip">Ж ${num(per.fat || 0)}</span>
         <span class="chip">У ${num(per.carbs || 0)}</span>
       </div>`;
-    el.style.cursor = "pointer";
-    el.addEventListener("click", () => openDishDetail(d));
+
+    el.addEventListener("mouseenter", () => { el.style.boxShadow = "0 4px 16px rgba(0,0,0,.1)"; el.style.transform = "translateY(-2px)"; });
+    el.addEventListener("mouseleave", () => { el.style.boxShadow = ""; el.style.transform = ""; });
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("[data-edit],[data-del]")) return;
+      openDishDetail(d);
+    });
+    el.querySelector("[data-edit]").addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEditDish(d, onRefresh);
+    });
+    el.querySelector("[data-del]").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (await confirmDialog(`Удалить рецепт «${d.name}»?`)) {
+        try { await API.deleteDish(d.id); toast("Рецепт удалён"); if (onRefresh) onRefresh(); }
+        catch (err) { toast(err.message, "err"); }
+      }
+    });
     return el;
   }
 
@@ -1186,6 +1207,77 @@
       }));
     };
     q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(search, 250); });
+  }
+
+  // -------- Edit existing recipe --------
+  async function openEditDish(d, onSaved) {
+    const ingredients = (d.ingredients || []).map((i) => ({
+      id: i.product_id, name: i.name, grams: i.grams,
+      calories: 0, protein: 0, fat: 0, carbs: 0,
+    }));
+    let fridgeMap = {};
+    try {
+      const fi = await API.fridgeItems();
+      fi.forEach((f) => { fridgeMap[f.name.trim().toLowerCase()] = f; });
+    } catch (_) {}
+
+    openModal({
+      title: `Редактировать «${d.name}»`, width: "560px",
+      render: (body) => {
+        body.innerHTML = `
+          <div class="field"><label>Название блюда</label><input class="input" id="d-name" value="${esc(d.name)}"></div>
+          <div class="field"><label>Описание (необязательно)</label><input class="input" id="d-desc" value="${esc(d.description || "")}"></div>
+          <div class="field"><label>Добавить ингредиент</label><div id="d-search"></div></div>
+          <div class="divider"></div>
+          <div id="d-list"></div>
+          <div class="card" style="background:var(--surface-2);padding:12px;margin-top:8px" id="d-total"></div>`;
+        const list = $("#d-list", body), total = $("#d-total", body);
+
+        const redraw = () => {
+          list.innerHTML = ingredients.length ? `<div class="list">${ingredients.map((ing, i) => `
+            <div class="list-item">
+              <div class="grow"><div class="name">${esc(ing.name)}</div></div>
+              <input class="input ing-g" data-i="${i}" type="number" min="1" value="${ing.grams}" style="max-width:90px">
+              <span class="muted" style="font-size:13px">г</span>
+              <button class="icon-btn" data-rm="${i}">${icon("trash", "icon-sm")}</button>
+            </div>`).join("")}</div>` : `<div class="muted" style="font-size:13px">Пока без ингредиентов</div>`;
+          redrawTotals();
+          $$(".ing-g", list).forEach((inp) => inp.addEventListener("input", () => { ingredients[+inp.dataset.i].grams = +inp.value || 0; redrawTotals(); }));
+          $$("[data-rm]", list).forEach((b) => b.addEventListener("click", () => { ingredients.splice(+b.dataset.rm, 1); redraw(); }));
+        };
+        const redrawTotals = () => {
+          let c = 0, p = 0, f = 0, u = 0, g = 0;
+          ingredients.forEach((ing) => { const k = ing.grams / 100;
+            c += (ing.calories||0) * k; p += (ing.protein||0) * k; f += (ing.fat||0) * k; u += (ing.carbs||0) * k; g += ing.grams; });
+          const per = g ? 100 / g : 0;
+          total.innerHTML = `<div class="flex between"><b>Итого (${num(g)} г)</b><span class="kcal-tag">${num(c)} ккал</span></div>
+            <div class="muted" style="font-size:13px;margin-top:4px">На 100 г: ${num(c*per)} ккал · Б ${num(p*per)} · Ж ${num(f*per)} · У ${num(u*per)}</div>`;
+        };
+
+        productSearchField($("#d-search", body), (prod) => {
+          const found = ingredients.find((x) => x.id === prod.id);
+          if (found) found.grams += 100; else ingredients.push({ ...prod, grams: 100 });
+          redraw();
+        }, fridgeMap);
+        redraw();
+      },
+      footer: (f, close) => {
+        f.innerHTML = `<button class="btn btn-ghost" data-x>Отмена</button><button class="btn btn-primary" data-ok>Сохранить</button>`;
+        f.querySelector("[data-x]").addEventListener("click", close);
+        f.querySelector("[data-ok]").addEventListener("click", async () => {
+          const name = document.getElementById("d-name").value.trim();
+          if (!name) return toast("Укажите название блюда", "err");
+          if (!ingredients.length) return toast("Добавьте хотя бы один ингредиент", "err");
+          try {
+            await API.updateDish(d.id, {
+              name, description: document.getElementById("d-desc").value.trim(),
+              ingredients: ingredients.map((i) => ({ product_id: i.id, grams: i.grams })),
+            });
+            toast("Рецепт обновлён"); close(); if (onSaved) onSaved();
+          } catch (e) { toast(e.message, "err"); }
+        });
+      },
+    });
   }
 
   // -------- Create own recipe (dish) --------

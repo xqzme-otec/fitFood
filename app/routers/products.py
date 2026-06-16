@@ -103,3 +103,39 @@ def create_dish(
     db.commit()
     db.refresh(dish)
     return _dish_to_out(dish)
+
+
+@router.put("/dishes/{dish_id}", response_model=DishOut)
+def update_dish(
+    dish_id: int,
+    payload: DishCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    dish = db.get(Dish, dish_id)
+    if not dish:
+        raise HTTPException(status_code=404, detail="Блюдо не найдено")
+    dish.name = payload.name
+    dish.description = payload.description
+    db.query(DishIngredient).filter(DishIngredient.dish_id == dish_id).delete()
+    for ing in payload.ingredients:
+        if not db.get(Product, ing.product_id):
+            raise HTTPException(status_code=400, detail=f"Продукт {ing.product_id} не найден")
+        db.add(DishIngredient(dish_id=dish.id, product_id=ing.product_id, grams=ing.grams))
+    db.commit()
+    db.refresh(dish)
+    return _dish_to_out(dish)
+
+
+@router.delete("/dishes/{dish_id}", status_code=204)
+def delete_dish(
+    dish_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    dish = db.get(Dish, dish_id)
+    if not dish:
+        raise HTTPException(status_code=404, detail="Блюдо не найдено")
+    db.query(DishIngredient).filter(DishIngredient.dish_id == dish_id).delete()
+    db.delete(dish)
+    db.commit()
