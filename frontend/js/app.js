@@ -982,40 +982,95 @@
   async function viewRecipes() {
     reload = viewRecipes;
     const v = view();
+
+    const SLOT_OPTIONS = [["", "Сейчас (авто)"], ...state.meals.map((m) => [String(m.id), m.name])];
+    let recSlotId = "";
+
+    const currentSlotLabel = () => SLOT_OPTIONS.find(([v]) => v === recSlotId)?.[1] || "Сейчас (авто)";
+
     v.innerHTML = `
       <div class="page-head">
         <div><h1>Рекомендации рецептов</h1><div class="sub">По остатку КБЖУ и содержимому холодильника</div></div>
-        <div class="flex gap-12 items-center" style="flex-wrap:wrap">
-          <button class="btn btn-primary" id="new-dish">${icon("plus", "icon-sm")} Создать рецепт</button>
-          <div class="field" style="margin:0;min-width:200px">
-            <label>Для приёма</label>
-            <select class="select" id="rec-slot">
-              <option value="">Сейчас (авто)</option>
-              ${state.meals.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join("")}
-            </select>
+        <button class="btn btn-primary" id="new-dish">${icon("plus", "icon-sm")} Создать рецепт</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;position:relative">
+        <div style="position:relative;display:inline-block">
+          <button class="btn btn-ghost" id="slot-btn" style="border:1px solid var(--line-2);gap:6px">
+            ${icon("filter", "icon-sm")}
+            <span id="slot-btn-label">${esc(currentSlotLabel())}</span>
+            ${icon("chevron-down", "icon-sm")}
+          </button>
+          <div id="slot-dropdown" style="
+            display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:200;
+            background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+            box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;padding:8px 0;
+          ">
+            <div style="padding:8px 14px 6px;font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em">Приём пищи</div>
+            ${SLOT_OPTIONS.map(([val, label]) => `
+              <button class="slot-option" data-val="${val}" style="
+                display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;
+                background:none;border:none;cursor:pointer;font-size:14px;color:var(--ink);
+                text-align:left;transition:background .12s;
+                ${recSlotId === val ? "background:var(--surface-2);font-weight:600;color:var(--primary);" : ""}
+              ">
+                <span style="width:16px;flex:none">${recSlotId === val ? icon("check", "icon-sm") : ""}</span>
+                ${esc(label)}
+              </button>`).join("")}
           </div>
         </div>
       </div>
       <div id="rec-list">${spinner()}</div>`;
 
-    const sel = $("#rec-slot", v), list = $("#rec-list", v);
+    const list = $("#rec-list", v);
+    const slotBtn = $("#slot-btn", v);
+    const slotDropdown = $("#slot-dropdown", v);
+
     const load = async () => {
       list.innerHTML = spinner();
       try {
-        const recs = await API.recommendations(sel.value || null);
+        const recs = await API.recommendations(recSlotId || null);
         list.innerHTML = recs.length
           ? `<div class="grid grid-meals">${recs.map((r) => recCard(r)).join("")}</div>`
           : `<div class="card">${emptyState("chef", "Подходящих рецептов нет — пополните холодильник")}</div>`;
         wireRecCards(list, async (dishId, grams) => {
-          if (!sel.value) return toast("Выберите конкретный приём, чтобы добавить", "err");
+          if (!recSlotId) return toast("Выберите конкретный приём, чтобы добавить", "err");
           try {
-            await API.addEntry({ meal_slot_id: +sel.value, dish_id: dishId, amount: grams, entry_date: state.today });
+            await API.addEntry({ meal_slot_id: +recSlotId, dish_id: dishId, amount: grams, entry_date: state.today });
             toast("Добавлено в дневник");
           } catch (e) { toast(e.message, "err"); }
         });
       } catch (e) { list.innerHTML = emptyState("info", e.message); }
     };
-    sel.addEventListener("change", load); load();
+
+    slotBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      slotDropdown.style.display = slotDropdown.style.display === "block" ? "none" : "block";
+    });
+
+    const closeDropdown = () => { slotDropdown.style.display = "none"; };
+    document.addEventListener("click", closeDropdown);
+    new MutationObserver((_, obs) => {
+      if (!v.isConnected) { document.removeEventListener("click", closeDropdown); obs.disconnect(); }
+    }).observe(document.getElementById("app"), { childList: true, subtree: false });
+
+    $$(".slot-option", v).forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        recSlotId = btn.dataset.val;
+        slotDropdown.style.display = "none";
+        $("#slot-btn-label", v).textContent = currentSlotLabel();
+        $$(".slot-option", v).forEach((b) => {
+          const active = b.dataset.val === recSlotId;
+          b.style.background = active ? "var(--surface-2)" : "none";
+          b.style.fontWeight = active ? "600" : "400";
+          b.style.color = active ? "var(--primary)" : "var(--ink)";
+          b.querySelector("span").innerHTML = active ? icon("check", "icon-sm") : "";
+        });
+        load();
+      });
+    });
+
+    load();
     $("#new-dish", v).addEventListener("click", () => openCreateDish(load));
   }
 
