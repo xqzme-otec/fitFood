@@ -920,7 +920,7 @@
             id: +o.dataset.id, name: o.dataset.name,
             per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c }
           };
-          openAddProductToMeal(prod);
+          openAddProductToFridge(prod);
         }));
       } catch (e) { res.innerHTML = `<div class="hint err" style="padding:6px 0">${e.message}</div>`; }
     };
@@ -929,55 +929,34 @@
     q.focus();
   }
 
-  function openAddProductToMeal(prod) {
+  function openAddProductToFridge(prod) {
     openModal({
-      title: `Добавить «${prod.name}»`,
+      title: `Добавить «${prod.name}» в холодильник`,
       render: (body) => {
         body.innerHTML = `
-          <div class="field"><label>Приём пищи</label>
-            <div id="ap-slots" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div></div>
-          <div class="divider"></div>
-          <div class="field"><label>Количество, г/мл</label>
-            <input class="input" id="ap-amt" type="number" min="1" step="1" value="100"></div>
-          <div class="card" style="background:var(--surface-2);padding:12px" id="ap-prev"></div>`;
-
-        const slotsDiv = body.querySelector("#ap-slots");
-        const meals = state.meals || [];
-        meals.forEach((m, i) => {
-          const btn = document.createElement("button");
-          btn.className = "btn btn-ghost btn-sm";
-          btn.textContent = m.name;
-          btn.dataset.slotId = m.meal_slot_id || m.id;
-          btn.addEventListener("click", () => {
-            slotsDiv.querySelectorAll("button").forEach((b) => b.classList.remove("btn-primary"));
-            btn.classList.add("btn-primary");
-          });
-          if (i === 0) btn.classList.add("btn-primary");
-          slotsDiv.appendChild(btn);
-        });
-
-        const amt = body.querySelector("#ap-amt");
-        const prev = body.querySelector("#ap-prev");
-        const upd = () => {
-          const f = (+amt.value || 0) / 100;
-          prev.innerHTML = `<div class="flex between"><b>${esc(prod.name)}</b>
-            <span class="kcal-tag">${num(prod.per100.calories * f)} ккал</span></div>
-            <div class="muted" style="font-size:13px;margin-top:4px">Б ${num(prod.per100.protein * f)} · Ж ${num(prod.per100.fat * f)} · У ${num(prod.per100.carbs * f)}</div>`;
-        };
-        amt.addEventListener("input", upd); upd();
+          <div class="row">
+            <div class="field"><label>Количество</label>
+              <input class="input" id="ap-amt" type="number" min="1" step="1" value="100"></div>
+            <div class="field"><label>Единица</label>
+              <select class="select" id="ap-unit"><option value="g">г</option><option value="ml">мл</option><option value="pcs">шт</option></select></div>
+          </div>
+          <div class="field"><label>Срок годности</label>
+            <input class="input" id="ap-exp" type="date">
+            <span class="hint">Пусто → предложит LLM</span></div>`;
       },
       footer: (f, close) => {
-        f.innerHTML = `<button class="btn btn-ghost" data-x>Отмена</button><button class="btn btn-primary" data-ok>Добавить</button>`;
+        f.innerHTML = `<button class="btn btn-ghost" data-x>Отмена</button><button class="btn btn-primary" data-ok>В холодильник</button>`;
         f.querySelector("[data-x]").addEventListener("click", close);
         f.querySelector("[data-ok]").addEventListener("click", async () => {
           const amount = +document.getElementById("ap-amt").value;
           if (!amount || amount <= 0) return toast("Укажите количество", "err");
-          const slotEl = document.querySelector("#ap-slots .btn-primary");
-          const slotId = slotEl ? +slotEl.dataset.slotId : null;
-          if (!slotId) return toast("Выберите приём пищи", "err");
+          const unit = document.getElementById("ap-unit").value;
+          const expiry = document.getElementById("ap-exp").value;
+          const payload = { name: prod.name, quantity: amount, unit, product_id: prod.id };
+          if (expiry) payload.expiry_date = expiry;
           try {
-            await API.addEntry({ meal_slot_id: slotId, product_id: prod.id, amount, entry_date: state.today });
-            toast("Добавлено в дневник"); close(); viewToday();
+            await API.fridgeAdd(payload);
+            toast("Добавлено в холодильник"); close();
           } catch (e) { toast(e.message, "err"); }
         });
       },
