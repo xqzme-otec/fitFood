@@ -4,7 +4,7 @@
   features = [ tfidf(clean_title) | keyword_flags | (len, word_count) ]
 
 Модель возвращает одну из 13 «магазинных» категорий. Для холодильника
-они сворачиваются в укрупнённые группы (FridgeCategory).
+они сворачиваются в 10 укрупнённых групп (FridgeCategory).
 Если модель/файлы недоступны — используется keyword-fallback.
 """
 from __future__ import annotations
@@ -17,27 +17,23 @@ import numpy as np
 from app.config import settings
 from app.models.enums import FridgeCategory
 
-# Сворачивание 13 категорий модели -> 8 групп холодильника.
+# Сворачивание 13 категорий модели -> 10 групп холодильника.
+# Обе «рыбные»/«мясные» категории модели сливаются в «Мясо и рыба».
 SHOP_TO_FRIDGE: dict[str, FridgeCategory] = {
-    "Бакалея": FridgeCategory.cereals,
-    "Вода и напитки": FridgeCategory.other,
-    "Готовая еда": FridgeCategory.other,
-    "Замороженные продукты": FridgeCategory.meat,
-    "Консервы": FridgeCategory.other,
+    "Бакалея": FridgeCategory.grocery,
+    "Вода и напитки": FridgeCategory.drinks,
+    "Готовая еда": FridgeCategory.ready_made,
+    "Замороженные продукты": FridgeCategory.other,
+    "Консервы": FridgeCategory.grocery,
     "Молочный прилавок": FridgeCategory.dairy,
-    "Мясо, птица, рыба": FridgeCategory.meat,
-    "Овощи и фрукты": FridgeCategory.vegetables,
-    "Рыба, морепродукты": FridgeCategory.fish,
-    "Сладости": FridgeCategory.other,
-    "Снеки": FridgeCategory.other,
-    "Хлеб и выпечка": FridgeCategory.cereals,
-    "Чай, кофе, какао": FridgeCategory.other,
+    "Мясо, птица, рыба": FridgeCategory.meat_fish,
+    "Овощи и фрукты": FridgeCategory.veg_fruit,
+    "Рыба, морепродукты": FridgeCategory.meat_fish,
+    "Сладости": FridgeCategory.sweets,
+    "Снеки": FridgeCategory.snacks,
+    "Хлеб и выпечка": FridgeCategory.grocery,
+    "Чай, кофе, какао": FridgeCategory.tea_coffee,
 }
-
-# Уточняющие ключевые слова для разнесения «Овощи и фрукты» и «Соусов».
-_FRUIT_WORDS = {"яблоко", "банан", "груша", "апельсин", "мандарин", "лимон",
-                "ягод", "виноград", "киви", "персик", "слива", "ананас"}
-_SAUCE_WORDS = {"соус", "кетчуп", "майонез", "горчица", "аджика", "паста томат"}
 
 
 def clean_title(title: str) -> str:
@@ -66,15 +62,6 @@ def _load_artifacts():
     except Exception as exc:  # noqa: BLE001 — модель опциональна
         print(f"[classifier] ML-модель недоступна, fallback по ключам: {exc}")
         return None
-
-
-def _refine(cleaned: str, fridge_cat: FridgeCategory) -> FridgeCategory:
-    """Дополнительная эвристика для фруктов и соусов."""
-    if any(w in cleaned for w in _SAUCE_WORDS):
-        return FridgeCategory.sauces
-    if fridge_cat == FridgeCategory.vegetables and any(w in cleaned for w in _FRUIT_WORDS):
-        return FridgeCategory.fruits
-    return fridge_cat
 
 
 def predict_shop_category(name: str) -> tuple[str, float]:
@@ -106,7 +93,7 @@ def predict_fridge_category(name: str) -> tuple[FridgeCategory, float]:
     """Категория холодильника + уверенность."""
     shop_cat, conf = predict_shop_category(name)
     fridge_cat = SHOP_TO_FRIDGE.get(shop_cat, FridgeCategory.other)
-    return _refine(clean_title(name), fridge_cat), conf
+    return fridge_cat, conf
 
 
 def _keyword_fallback_raw(cleaned: str, keywords: dict) -> str | None:

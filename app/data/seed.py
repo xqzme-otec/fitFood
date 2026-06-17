@@ -5,14 +5,13 @@
 """
 from __future__ import annotations
 
-import re
-
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import SessionLocal, engine
 from app.database import Base
 from app.models import Dish, DishIngredient, Product
+from app.services.naming import clean_display_name
 
 # --- Базовые продукты: (ключ, имя, категория, ккал, белки, жиры, углеводы на 100 г) ---
 BASE_PRODUCTS: list[tuple[str, str, str, float, float, float, float]] = [
@@ -72,8 +71,8 @@ BASE_DISHES: list[tuple[str, str, str, list[tuple[str, float]]]] = [
 
 
 def _clean_catalog_name(name: str) -> str:
-    text = re.sub(r"^\d+\.", "", str(name)).strip()
-    return re.sub(r"\s+", " ", text)
+    """Очистка названия из выгрузки магазина (цена, рейтинг, отзывы, вес)."""
+    return clean_display_name(name)
 
 
 def _to_float(value, default: float = 0.0) -> float:
