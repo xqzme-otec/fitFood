@@ -59,7 +59,7 @@
 
     const inner = {
       "#/today": viewToday, "#/fridge": viewFridge, "#/receipt": viewReceipt,
-      "#/recipes": viewRecipes, "#/settings": viewSettings,
+      "#/add": viewAddProducts, "#/recipes": viewRecipes, "#/settings": viewSettings,
     }[route] || viewToday;
     renderShell(route);
     inner();
@@ -70,6 +70,7 @@
   const NAV = [
     ["#/today", "home", "Сегодня"],
     ["#/fridge", "fridge", "Холодильник"],
+    ["#/add", "search", "Добавить"],
     ["#/receipt", "receipt", "Сканер чека"],
     ["#/recipes", "chef", "Рецепты"],
     ["#/settings", "settings", "Профиль"],
@@ -564,7 +565,7 @@
       </div>
       <div id="groups"></div>`;
 
-    $("#add", v).addEventListener("click", openAddFridge);
+    $("#add", v).addEventListener("click", () => go("#/add"));
     $("#scan", v).addEventListener("click", () => go("#/receipt"));
 
     const wrap = $("#groups", v);
@@ -874,6 +875,89 @@
           if (v.expiry_date) patch.expiry_date = v.expiry_date;
           try { await API.fridgeUpdate(it.id, patch); toast("Сохранено"); close(); viewFridge(); }
           catch (err) { toast(err.message, "err"); }
+        });
+      },
+    });
+  }
+
+  // ---------------- Add products ----------------
+  function viewAddProducts() {
+    reload = viewAddProducts;
+    const v = view();
+    v.innerHTML = `
+      <div class="page-head">
+        <div><h1>Добавить продукты</h1><div class="sub">Поиск по каталогу из базы продуктов</div></div>
+      </div>
+      <div class="card" style="max-width:680px">
+        <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:12px 16px">
+          ${icon("search", "icon-sm")}
+          <input class="input" id="add-q" placeholder="Начните вводить название продукта…" autocomplete="off"
+            style="border:none;background:transparent;padding:0 0 0 2px;font-size:16px;outline:none;flex:1;box-shadow:none">
+        </div>
+        <div id="add-res" style="margin-top:12px"></div>
+      </div>`;
+
+    const q = document.getElementById("add-q");
+    const res = document.getElementById("add-res");
+    let timer = null;
+
+    const doSearch = async () => {
+      const term = q.value.trim();
+      if (!term) { res.innerHTML = ""; return; }
+      res.innerHTML = spinner();
+      try {
+        const items = await API.searchProducts(term);
+        if (!items.length) { res.innerHTML = `<div class="hint" style="padding:6px 0">Ничего не найдено</div>`; return; }
+
+        res.innerHTML = `<div class="search-results">${items.map((it) =>
+          `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}"
+            data-cal="${it.calories}" data-p="${it.protein}" data-f="${it.fat}" data-c="${it.carbs}">
+            <span>${esc(it.name)}</span><span class="cat">${num(it.calories)} ккал/100г</span></div>`
+        ).join("")}</div>`;
+
+        res.querySelectorAll(".opt").forEach((o) => o.addEventListener("click", () => {
+          const prod = {
+            id: +o.dataset.id, name: o.dataset.name,
+            per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c }
+          };
+          openAddProductToFridge(prod);
+        }));
+      } catch (e) { res.innerHTML = `<div class="hint err" style="padding:6px 0">${e.message}</div>`; }
+    };
+
+    q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(doSearch, 280); });
+    q.focus();
+  }
+
+  function openAddProductToFridge(prod) {
+    openModal({
+      title: `Добавить «${prod.name}» в холодильник`,
+      render: (body) => {
+        body.innerHTML = `
+          <div class="row">
+            <div class="field"><label>Количество</label>
+              <input class="input" id="ap-amt" type="number" min="1" step="1" value="100"></div>
+            <div class="field"><label>Единица</label>
+              <select class="select" id="ap-unit"><option value="g">г</option><option value="ml">мл</option><option value="pcs">шт</option></select></div>
+          </div>
+          <div class="field"><label>Срок годности</label>
+            <input class="input" id="ap-exp" type="date">
+            <span class="hint">Пусто → предложит LLM</span></div>`;
+      },
+      footer: (f, close) => {
+        f.innerHTML = `<button class="btn btn-ghost" data-x>Отмена</button><button class="btn btn-primary" data-ok>В холодильник</button>`;
+        f.querySelector("[data-x]").addEventListener("click", close);
+        f.querySelector("[data-ok]").addEventListener("click", async () => {
+          const amount = +document.getElementById("ap-amt").value;
+          if (!amount || amount <= 0) return toast("Укажите количество", "err");
+          const unit = document.getElementById("ap-unit").value;
+          const expiry = document.getElementById("ap-exp").value;
+          const payload = { name: prod.name, quantity: amount, unit, product_id: prod.id };
+          if (expiry) payload.expiry_date = expiry;
+          try {
+            await API.fridgeAdd(payload);
+            toast("Добавлено в холодильник"); close();
+          } catch (e) { toast(e.message, "err"); }
         });
       },
     });
