@@ -1,4 +1,5 @@
 "use client";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -95,11 +96,45 @@ function StatTile({ label, value, target, unit, color, icon }: (typeof TILES)[nu
   );
 }
 
+function QuickSearch() {
+  return (
+    <Autocomplete
+      freeSolo
+      openOnFocus
+      options={SUGGESTIONS}
+      groupBy={() => "Часто добавляемые"}
+      sx={{ maxWidth: 620 }}
+      slotProps={{ paper: { sx: { borderRadius: 3, mt: 0.5 } } }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          placeholder="Добавить продукт"
+          InputProps={{
+            ...params.InputProps,
+            sx: { borderRadius: 99, bgcolor: "background.paper", pl: 1 },
+            startAdornment: (
+              <>
+                <InputAdornment position="start">
+                  <SearchRoundedIcon color="action" />
+                </InputAdornment>
+                {params.InputProps.startAdornment}
+              </>
+            ),
+          }}
+        />
+      )}
+    />
+  );
+}
+
 function Dashboard() {
   const dateLabel = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <Stack spacing={3.5}>
+      {/* Минималистичный поиск сверху */}
+      <QuickSearch />
+
       {/* Приветствие */}
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
         <Box>
@@ -147,38 +182,6 @@ function Dashboard() {
           </Grid>
         </Grid>
       </Grid>
-
-      {/* Быстрое добавление */}
-      <Card sx={{ borderRadius: 5 }}>
-        <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
-          <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
-            Что вы съели?
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Найдите продукт и добавьте в дневник за пару секунд
-          </Typography>
-          <TextField
-            fullWidth
-            placeholder="Например, куриное филе…"
-            InputProps={{
-              sx: { borderRadius: 3, bgcolor: "background.default", py: 0.5 },
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchRoundedIcon color="action" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Stack direction="row" spacing={1} sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
-            <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
-              Часто:
-            </Typography>
-            {SUGGESTIONS.map((s) => (
-              <Chip key={s} label={s} variant="outlined" clickable sx={{ borderRadius: 2 }} />
-            ))}
-          </Stack>
-        </CardContent>
-      </Card>
 
       {/* Приёмы пищи */}
       <Box>

@@ -6,7 +6,6 @@ import AppBar from "@mui/material/AppBar";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import CircularProgress from "@mui/material/CircularProgress";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -32,47 +31,13 @@ import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 
 const DRAWER_WIDTH = 268;
 
-const NAV_GROUPS: { label: string; items: { href: string; label: string; icon: React.ReactNode }[] }[] = [
-  {
-    label: "Меню",
-    items: [
-      { href: "/today", label: "Главная", icon: <DashboardRoundedIcon /> },
-      { href: "/diary", label: "Дневник", icon: <MenuBookRoundedIcon /> },
-      { href: "/fridge", label: "Холодильник", icon: <KitchenRoundedIcon /> },
-      { href: "/recipes", label: "Рецепты", icon: <RestaurantMenuRoundedIcon /> },
-    ],
-  },
-  {
-    label: "Ещё",
-    items: [
-      { href: "/receipt", label: "Сканер чека", icon: <ReceiptLongRoundedIcon /> },
-      { href: "/profile", label: "Профиль", icon: <PersonRoundedIcon /> },
-    ],
-  },
+const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
+  { href: "/today", label: "Главная", icon: <DashboardRoundedIcon /> },
+  { href: "/diary", label: "Дневник", icon: <MenuBookRoundedIcon /> },
+  { href: "/fridge", label: "Холодильник", icon: <KitchenRoundedIcon /> },
+  { href: "/recipes", label: "Рецепты", icon: <RestaurantMenuRoundedIcon /> },
+  { href: "/receipt", label: "Сканер чека", icon: <ReceiptLongRoundedIcon /> },
 ];
-
-// Демо-сводка дня для прогресса в сайдбаре (прототип, без бэкенда).
-const DEMO = { consumed: 1540, target: 2100 };
-
-function MiniRing({ value, size = 64 }: { value: number; size?: number }) {
-  return (
-    <Box sx={{ position: "relative", width: size, height: size, flex: "none" }}>
-      <CircularProgress variant="determinate" value={100} size={size} thickness={5} sx={{ color: alpha("#2E7D32", 0.15), position: "absolute", left: 0 }} />
-      <CircularProgress
-        variant="determinate"
-        value={value}
-        size={size}
-        thickness={5}
-        sx={{ color: "primary.main", "& .MuiCircularProgress-circle": { strokeLinecap: "round" } }}
-      />
-      <Box sx={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}>
-        <Typography variant="caption" sx={{ fontWeight: 800 }}>
-          {Math.round(value)}%
-        </Typography>
-      </Box>
-    </Box>
-  );
-}
 
 function Brand() {
   return (
@@ -93,7 +58,6 @@ export default function DesignShell({ children }: { children: React.ReactNode })
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"), { noSsr: true });
   const [open, setOpen] = useState(false);
   const [userMenu, setUserMenu] = useState<null | HTMLElement>(null);
-  const pct = Math.min((DEMO.consumed / DEMO.target) * 100, 100);
   const active = (href: string) => pathname === href || pathname?.startsWith(href + "/");
 
   const drawer = (
@@ -102,91 +66,51 @@ export default function DesignShell({ children }: { children: React.ReactNode })
         <Brand />
       </Box>
 
-      {/* Мини-прогресс дня */}
-      <Box
-        sx={{
-          mt: 1,
-          p: 2,
-          borderRadius: 4,
-          background: `linear-gradient(135deg, ${alpha("#2E7D32", 0.10)}, ${alpha("#66BB6A", 0.06)})`,
-          border: "1px solid",
-          borderColor: alpha("#2E7D32", 0.12),
-        }}
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <MiniRing value={pct} />
-          <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-              Сегодня
-            </Typography>
-            <Typography sx={{ fontWeight: 800, lineHeight: 1.1 }}>
-              {DEMO.consumed.toLocaleString("ru-RU")}
-              <Box component="span" sx={{ color: "text.secondary", fontWeight: 600, fontSize: 13 }}>
-                {" "}/ {DEMO.target.toLocaleString("ru-RU")}
-              </Box>
-            </Typography>
-            <Typography variant="caption" sx={{ color: "success.main", fontWeight: 700 }}>
-              осталось {DEMO.target - DEMO.consumed} ккал
-            </Typography>
-          </Box>
-        </Stack>
-      </Box>
-
-      {/* Навигация по секциям */}
+      {/* Навигация */}
       <Box sx={{ flex: 1, overflowY: "auto", mt: 2 }}>
-        {NAV_GROUPS.map((group) => (
-          <Box key={group.label} sx={{ mb: 2 }}>
-            <Typography
-              variant="overline"
-              sx={{ px: 1.5, color: "text.secondary", fontWeight: 700, letterSpacing: 1 }}
-            >
-              {group.label}
-            </Typography>
-            <Stack spacing={0.5} sx={{ mt: 0.5 }}>
-              {group.items.map((item) => {
-                const on = active(item.href);
-                return (
-                  <Stack
-                    key={item.href}
-                    component={NextLink}
-                    href={item.href}
-                    direction="row"
-                    alignItems="center"
-                    spacing={1.5}
-                    onClick={() => setOpen(false)}
-                    sx={{
-                      px: 1.5,
-                      py: 1.25,
-                      borderRadius: 3,
-                      textDecoration: "none",
-                      color: on ? "primary.main" : "text.primary",
-                      bgcolor: on ? alpha("#2E7D32", 0.10) : "transparent",
-                      fontWeight: 600,
-                      position: "relative",
-                      transition: "background .15s",
-                      "&:hover": { bgcolor: on ? alpha("#2E7D32", 0.14) : alpha("#2E7D32", 0.05) },
-                      "&::before": on
-                        ? {
-                            content: '""',
-                            position: "absolute",
-                            left: 0,
-                            top: "22%",
-                            bottom: "22%",
-                            width: 3,
-                            borderRadius: 3,
-                            bgcolor: "primary.main",
-                          }
-                        : {},
-                    }}
-                  >
-                    <Box sx={{ display: "flex", color: on ? "primary.main" : "text.secondary" }}>{item.icon}</Box>
-                    <Typography sx={{ fontWeight: 600 }}>{item.label}</Typography>
-                  </Stack>
-                );
-              })}
-            </Stack>
-          </Box>
-        ))}
+        <Stack spacing={0.5}>
+          {NAV.map((item) => {
+            const on = active(item.href);
+            return (
+              <Stack
+                key={item.href}
+                component={NextLink}
+                href={item.href}
+                direction="row"
+                alignItems="center"
+                spacing={1.5}
+                onClick={() => setOpen(false)}
+                sx={{
+                  px: 1.5,
+                  py: 1.25,
+                  borderRadius: 3,
+                  textDecoration: "none",
+                  color: on ? "primary.main" : "text.primary",
+                  bgcolor: on ? alpha("#2E7D32", 0.10) : "transparent",
+                  fontWeight: 600,
+                  position: "relative",
+                  transition: "background .15s",
+                  "&:hover": { bgcolor: on ? alpha("#2E7D32", 0.14) : alpha("#2E7D32", 0.05) },
+                  "&::before": on
+                    ? {
+                        content: '""',
+                        position: "absolute",
+                        left: 0,
+                        top: "22%",
+                        bottom: "22%",
+                        width: 3,
+                        borderRadius: 3,
+                        bgcolor: "primary.main",
+                      }
+                    : {},
+                }}
+              >
+                <Box sx={{ display: "flex", color: on ? "primary.main" : "text.secondary" }}>{item.icon}</Box>
+                <Typography sx={{ fontWeight: 600 }}>{item.label}</Typography>
+              </Stack>
+            );
+          })}
+        </Stack>
       </Box>
 
       {/* Акцентная кнопка + пользователь */}
