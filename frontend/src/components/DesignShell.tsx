@@ -9,6 +9,9 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
@@ -23,6 +26,9 @@ import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import MenuRoundedIcon from "@mui/icons-material/MenuRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EnergySavingsLeafRoundedIcon from "@mui/icons-material/EnergySavingsLeafRounded";
+import KeyboardArrowUpRoundedIcon from "@mui/icons-material/KeyboardArrowUpRounded";
+import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 
 const DRAWER_WIDTH = 268;
 
@@ -86,6 +92,7 @@ export default function DesignShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"), { noSsr: true });
   const [open, setOpen] = useState(false);
+  const [userMenu, setUserMenu] = useState<null | HTMLElement>(null);
   const pct = Math.min((DEMO.consumed / DEMO.target) * 100, 100);
   const active = (href: string) => pathname === href || pathname?.startsWith(href + "/");
 
@@ -191,7 +198,15 @@ export default function DesignShell({ children }: { children: React.ReactNode })
           direction="row"
           alignItems="center"
           spacing={1.5}
-          sx={{ p: 1, borderRadius: 3, bgcolor: alpha("#2E7D32", 0.04) }}
+          onClick={(e) => setUserMenu(e.currentTarget)}
+          sx={{
+            p: 1,
+            borderRadius: 3,
+            cursor: "pointer",
+            bgcolor: userMenu ? alpha("#2E7D32", 0.10) : alpha("#2E7D32", 0.04),
+            transition: "background .15s",
+            "&:hover": { bgcolor: alpha("#2E7D32", 0.10) },
+          }}
         >
           <Avatar sx={{ bgcolor: "secondary.main", width: 36, height: 36 }}>А</Avatar>
           <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -202,8 +217,47 @@ export default function DesignShell({ children }: { children: React.ReactNode })
               Похудение · 78 кг
             </Typography>
           </Box>
+          <KeyboardArrowUpRoundedIcon
+            fontSize="small"
+            sx={{ color: "text.secondary", transform: userMenu ? "rotate(180deg)" : "none", transition: "transform .15s" }}
+          />
         </Stack>
       </Stack>
+
+      {/* Меню пользователя */}
+      <Menu
+        anchorEl={userMenu}
+        open={!!userMenu}
+        onClose={() => setUserMenu(null)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        transformOrigin={{ vertical: "bottom", horizontal: "center" }}
+        slotProps={{ paper: { sx: { width: 220, borderRadius: 3, mt: -1 } } }}
+      >
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography sx={{ fontWeight: 700 }}>Анна</Typography>
+          <Typography variant="caption" color="text.secondary">
+            anna@example.com
+          </Typography>
+        </Box>
+        <MenuItem component={NextLink} href="/profile" onClick={() => setUserMenu(null)}>
+          <ListItemIcon>
+            <PersonRoundedIcon fontSize="small" />
+          </ListItemIcon>
+          Профиль
+        </MenuItem>
+        <MenuItem component={NextLink} href="/profile" onClick={() => setUserMenu(null)}>
+          <ListItemIcon>
+            <SettingsRoundedIcon fontSize="small" />
+          </ListItemIcon>
+          Настройки
+        </MenuItem>
+        <MenuItem onClick={() => setUserMenu(null)} sx={{ color: "error.main" }}>
+          <ListItemIcon>
+            <LogoutRoundedIcon fontSize="small" sx={{ color: "error.main" }} />
+          </ListItemIcon>
+          Выйти
+        </MenuItem>
+      </Menu>
     </Box>
   );
 
