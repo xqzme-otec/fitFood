@@ -57,9 +57,10 @@ def health():
     return {"app": settings.app_name, "status": "ok", "docs": "/docs"}
 
 
-# --- Фронтенд (SPA) ---
-# Раздаётся как статика; index.html отдаётся на "/" (html=True).
-# Монтируется ПОСЛЕ API-роутеров, поэтому /auth, /fridge и т.д. имеют приоритет.
-_frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
-if _frontend_dir.exists():
-    app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")
+# --- Фронтенд (Next.js, статический экспорт) ---
+# Next.js собирается в frontend/out (output: 'export'); раздаётся как статика
+# с html=True, поэтому /today/ -> today/index.html. Монтируется ПОСЛЕ
+# API-роутеров, чтобы /auth, /fridge и т.д. имели приоритет.
+_frontend_out = Path(__file__).resolve().parent.parent / "frontend" / "out"
+if _frontend_out.exists():
+    app.mount("/", StaticFiles(directory=str(_frontend_out), html=True), name="frontend")
