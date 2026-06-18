@@ -286,6 +286,7 @@
   function openAddFood(slot) {
     let mode = "product", selected = null, timer = null;
     let fridgeCache = null;
+    const dishDetailsCache = {};
 
     openModal({
       title: `Добавить в «${slot.name}»`,
@@ -347,6 +348,8 @@
 
           if (mode === "dish") {
             const items = await API.searchDishes(term);
+            // Сохраняем полные данные блюда (включая ингредиенты) для списания из холодильника
+            items.forEach((it) => { dishDetailsCache[it.id] = it; });
             renderResults(items.map((it) => ({ id: it.id, name: it.name, _unit: "g", _per100: it.per_100g })));
             return;
           }
@@ -418,15 +421,45 @@
           const unitLabel = selected.unit === "ml" ? "мл" : selected.unit === "pcs" ? "шт" : "г";
           const defaultAmt = selected.unit === "pcs" ? 1 : 100;
           const maxAttr = selected.maxQty != null ? `max="${selected.maxQty}"` : "";
+          const dish = mode === "dish" ? dishDetailsCache[selected.id] : null;
+          const ings = dish?.ingredients || [];
+
           pick.innerHTML = `
             <div class="divider"></div>
             <div class="field">
               <label>Количество, ${unitLabel}${selected.maxQty != null ? ` (в холодильнике: ${num(selected.maxQty)} ${unitLabel})` : ""}</label>
               <input class="input" id="m-amt" type="number" min="1" step="1" value="${defaultAmt}" ${maxAttr}>
             </div>
-            <div class="card" style="background:var(--surface-2);padding:12px" id="m-prev"></div>`;
+            <div class="card" style="background:var(--surface-2);padding:12px" id="m-prev"></div>
+            ${ings.length ? `
+            <div style="margin-top:10px;border:1px solid var(--line-2);border-radius:var(--r-sm);overflow:hidden">
+              <button id="m-ings-toggle" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink-2)">
+                <span>${icon("list", "icon-sm")} Списание из холодильника</span>
+                <span id="m-ings-chevron" style="transition:transform .2s">${icon("chevron-down", "icon-sm")}</span>
+              </button>
+              <div id="m-ings-list" style="display:none;border-top:1px solid var(--line-2)">
+                ${ings.map((ing) => `
+                  <div class="list-item" data-ing-id="${ing.product_id}" data-ing-grams="${ing.grams}" style="padding:8px 14px">
+                    <span class="grow" style="font-size:13px">${esc(ing.name)}</span>
+                    <span class="ing-qty muted" style="font-size:13px;white-space:nowrap">—</span>
+                  </div>`).join("")}
+              </div>
+            </div>` : ""}`;
 
           const amt = $("#m-amt", pick), prev = $("#m-prev", pick);
+
+          // Раскрывающийся список
+          const toggle = pick.querySelector("#m-ings-toggle");
+          const ingsList = pick.querySelector("#m-ings-list");
+          const chevron = pick.querySelector("#m-ings-chevron");
+          if (toggle) {
+            toggle.addEventListener("click", () => {
+              const open = ingsList.style.display !== "none";
+              ingsList.style.display = open ? "none" : "block";
+              chevron.style.transform = open ? "" : "rotate(180deg)";
+            });
+          }
+
           const upd = () => {
             const qty = +amt.value || 0;
             const f = selected.unit === "pcs" ? qty : qty / 100;
@@ -438,8 +471,16 @@
               <div class="flex between">
                 <b>${esc(selected.name)}</b>
                 <span class="kcal-tag">${selected.hasKbju ? num(p.calories * f) + " ккал" : "—"}</span>
-              </div>${kbjuLine}
-              ${selected.fridgeId ? `<div style="font-size:12px;margin-top:6px;color:#16a34a;font-weight:600">✓ Спишется из холодильника</div>` : ""}`;
+              </div>${kbjuLine}`;
+
+            // Обновляем количества ингредиентов пропорционально введённым граммам
+            if (ings.length && dish?.total_grams) {
+              const scale = qty / dish.total_grams;
+              pick.querySelectorAll("[data-ing-grams]").forEach((row) => {
+                const g = Math.round(+row.dataset.ingGrams * scale);
+                row.querySelector(".ing-qty").textContent = g > 0 ? `${g} г` : "< 1 г";
+              });
+            }
           };
           amt.addEventListener("input", upd); upd();
         }
@@ -458,8 +499,70 @@
           }
 
           const payload = { meal_slot_id: slot.meal_slot_id || slot.id, amount, entry_date: state.today };
-          if (mode === "dish") payload.dish_id = selected.id;
-          else payload.product_id = selected.id;
+
+          if (mode === "dish") {
+            payload.dish_id = selected.id;
+            // Проверяем ингредиенты блюда против холодильника
+            const dish = dishDetailsCache[selected.id];
+            const ings = dish?.ingredients || [];
+            if (ings.length > 0) {
+              if (!fridgeCache) {
+                try { fridgeCache = await API.fridgeItems(); } catch { fridgeCache = []; }
+              }
+              const fridgeByProductId = Object.fromEntries(
+                fridgeCache.filter((fi) => fi.product_id).map((fi) => [fi.product_id, fi])
+              );
+              // Масштабируем граммы ингредиентов на введённое количество
+              const scale = amount / (dish.total_grams || amount);
+              const toDeduct = [];
+              const missing = [];
+              ings.forEach((ing) => {
+                const fi = fridgeByProductId[ing.product_id];
+                const needed = Math.round(ing.grams * scale);
+                if (fi) toDeduct.push({ fi, needed });
+                else missing.push({ name: ing.name, needed });
+              });
+
+              if (missing.length > 0) {
+                const ok = await new Promise((resolve) => {
+                  openModal({
+                    title: "Не хватает продуктов", width: "420px",
+                    render: (b) => {
+                      b.innerHTML = `
+                        <p style="margin:0 0 12px">Этих ингредиентов нет в холодильнике:</p>
+                        <div class="list">${missing.map((m) =>
+                          `<div class="list-item">
+                            <span class="grow">${esc(m.name)}</span>
+                            <span class="muted" style="font-size:13px">${m.needed} г</span>
+                          </div>`).join("")}
+                        </div>
+                        <p style="margin:12px 0 0;color:var(--muted);font-size:13px">Всё равно добавить блюдо в рацион?</p>`;
+                    },
+                    footer: (f, close) => {
+                      f.innerHTML = `<button class="btn btn-ghost" data-no>Отмена</button>
+                        <button class="btn btn-primary" data-yes>Добавить</button>`;
+                      f.querySelector("[data-no]").addEventListener("click", () => { close(); resolve(false); });
+                      f.querySelector("[data-yes]").addEventListener("click", () => { close(); resolve(true); });
+                    },
+                  });
+                });
+                if (!ok) return;
+              }
+
+              try {
+                await API.addEntry(payload);
+                await Promise.all(toDeduct.map(({ fi, needed }) => {
+                  const remaining = fi.quantity - needed;
+                  return remaining <= 0 ? API.fridgeDelete(fi.id) : API.fridgeUpdate(fi.id, { quantity: remaining });
+                }));
+                toast(toDeduct.length > 0 ? "Добавлено и списано из холодильника" : "Добавлено в рацион");
+                close(); viewToday();
+              } catch (e) { toast(e.message, "err"); }
+              return;
+            }
+          } else {
+            payload.product_id = selected.id;
+          }
 
           try {
             await API.addEntry(payload);
@@ -1067,110 +1170,138 @@
     reload = viewRecipes;
     const v = view();
 
-    const SLOT_OPTIONS = [["", "Сейчас (авто)"], ...state.meals.map((m) => [String(m.id), m.name])];
-    let recSlotId = "";
-
-    const currentSlotLabel = () => SLOT_OPTIONS.find(([v]) => v === recSlotId)?.[1] || "Сейчас (авто)";
-
     v.innerHTML = `
       <div class="page-head">
-        <div><h1>Рекомендации рецептов</h1><div class="sub">По остатку КБЖУ и содержимому холодильника</div></div>
+        <div><h1>Мои рецепты</h1><div class="sub">Все созданные блюда</div></div>
         <button class="btn btn-primary" id="new-dish">${icon("plus", "icon-sm")} Создать рецепт</button>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:48px;margin-bottom:20px;position:relative">
-        <div style="position:relative;display:inline-block">
-          <button class="btn btn-ghost" id="slot-btn" style="border:1px solid var(--line-2);gap:6px">
-            ${icon("filter", "icon-sm")}
-            <span id="slot-btn-label">${esc(currentSlotLabel())}</span>
-            ${icon("chevron-down", "icon-sm")}
-          </button>
-          <div id="slot-dropdown" style="
-            display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:200;
-            background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
-            box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:220px;padding:8px 0;
-          ">
-            <div style="padding:8px 14px 6px;font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em">Приём пищи</div>
-            ${SLOT_OPTIONS.map(([val, label]) => `
-              <button class="slot-option" data-val="${val}" style="
-                display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;
-                background:none;border:none;cursor:pointer;font-size:14px;color:var(--ink);
-                text-align:left;transition:background .12s;
-                ${recSlotId === val ? "background:var(--surface-2);font-weight:600;color:var(--primary);" : ""}
-              ">
-                <span style="width:16px;flex:none">${recSlotId === val ? icon("check", "icon-sm") : ""}</span>
-                ${esc(label)}
-              </button>`).join("")}
-          </div>
-        </div>
       </div>
       <div id="rec-list">${spinner()}</div>`;
 
     const list = $("#rec-list", v);
-    const slotBtn = $("#slot-btn", v);
-    const slotDropdown = $("#slot-dropdown", v);
 
     const load = async () => {
       list.innerHTML = spinner();
       try {
-        const recs = await API.recommendations(recSlotId || null);
-        list.innerHTML = recs.length
-          ? `<div class="grid grid-meals">${recs.map((r) => recCard(r)).join("")}</div>`
-          : `<div class="card">${emptyState("chef", "Подходящих рецептов нет — пополните холодильник")}</div>`;
-        wireRecCards(list, async (dishId, grams) => {
-          if (!recSlotId) return toast("Выберите конкретный приём, чтобы добавить", "err");
-          try {
-            await API.addEntry({ meal_slot_id: +recSlotId, dish_id: dishId, amount: grams, entry_date: state.today });
-            toast("Добавлено в дневник");
-          } catch (e) { toast(e.message, "err"); }
-        });
+        const dishes = await API.searchDishes("");
+        if (!dishes.length) {
+          list.innerHTML = `<div class="card">${emptyState("chef", "Рецептов пока нет — создайте первый")}</div>`;
+          return;
+        }
+        const grid = document.createElement("div");
+        grid.className = "grid grid-meals";
+        dishes.forEach((d) => grid.appendChild(dishCard(d, load)));
+        list.innerHTML = "";
+        list.appendChild(grid);
       } catch (e) { list.innerHTML = emptyState("info", e.message); }
     };
 
-    slotBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      slotDropdown.style.display = slotDropdown.style.display === "block" ? "none" : "block";
-    });
-
-    const closeDropdown = () => { slotDropdown.style.display = "none"; };
-    document.addEventListener("click", closeDropdown);
-    new MutationObserver((_, obs) => {
-      if (!v.isConnected) { document.removeEventListener("click", closeDropdown); obs.disconnect(); }
-    }).observe(document.getElementById("app"), { childList: true, subtree: false });
-
-    $$(".slot-option", v).forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        recSlotId = btn.dataset.val;
-        slotDropdown.style.display = "none";
-        $("#slot-btn-label", v).textContent = currentSlotLabel();
-        $$(".slot-option", v).forEach((b) => {
-          const active = b.dataset.val === recSlotId;
-          b.style.background = active ? "var(--surface-2)" : "none";
-          b.style.fontWeight = active ? "600" : "400";
-          b.style.color = active ? "var(--primary)" : "var(--ink)";
-          b.querySelector("span").innerHTML = active ? icon("check", "icon-sm") : "";
-        });
-        load();
-      });
-    });
-
-    load();
     $("#new-dish", v).addEventListener("click", () => openCreateDish(load));
+    load();
+  }
+
+  function dishCard(d, onRefresh) {
+    const per = d.per_100g || {};
+    const el = document.createElement("div");
+    el.className = "card";
+    el.style.cssText = "cursor:pointer;transition:box-shadow .15s,transform .15s";
+    el.innerHTML = `
+      <div class="section-title">
+        <h3>${esc(d.name)}</h3>
+        <div class="flex gap-8">
+          <button class="icon-btn" data-edit aria-label="Изменить">${icon("edit", "icon-sm")}</button>
+          <button class="icon-btn" data-del aria-label="Удалить">${icon("trash", "icon-sm")}</button>
+        </div>
+      </div>
+      <div class="stat" style="margin-bottom:12px">
+        <div class="v">${num(per.calories || 0)} <span class="k" style="font-size:14px">ккал</span></div>
+        <div class="k">на 100 г · ${num(d.total_grams || 0)} г всего</div>
+      </div>
+      <div class="divider" style="margin:0 0 12px"></div>
+      <div class="muted" style="font-size:12px;margin-bottom:4px">БЖУ на 100 г</div>
+      <div class="flex gap-8" style="flex-wrap:wrap">
+        <span class="chip">Б ${num(per.protein || 0)}</span>
+        <span class="chip">Ж ${num(per.fat || 0)}</span>
+        <span class="chip">У ${num(per.carbs || 0)}</span>
+      </div>`;
+
+    el.addEventListener("mouseenter", () => { el.style.boxShadow = "0 4px 16px rgba(0,0,0,.1)"; el.style.transform = "translateY(-2px)"; });
+    el.addEventListener("mouseleave", () => { el.style.boxShadow = ""; el.style.transform = ""; });
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("[data-edit],[data-del]")) return;
+      openDishDetail(d);
+    });
+    el.querySelector("[data-edit]").addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEditDish(d, onRefresh);
+    });
+    el.querySelector("[data-del]").addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (await confirmDialog(`Удалить рецепт «${d.name}»?`)) {
+        try { await API.deleteDish(d.id); toast("Рецепт удалён"); if (onRefresh) onRefresh(); }
+        catch (err) { toast(err.message, "err"); }
+      }
+    });
+    return el;
+  }
+
+  function openDishDetail(d) {
+    const per = d.per_100g || {};
+    const ings = d.ingredients || [];
+    openModal({
+      title: d.name, width: "480px",
+      render: (body) => {
+        body.innerHTML = `
+          ${d.description ? `<p class="muted" style="margin:0 0 14px">${esc(d.description)}</p>` : ""}
+          <div class="card" style="background:var(--surface-2);padding:12px;margin-bottom:16px">
+            <div class="flex between" style="margin-bottom:6px">
+              <b>На 100 г</b><span class="kcal-tag">${num(per.calories || 0)} ккал</span>
+            </div>
+            <div class="flex gap-8" style="flex-wrap:wrap">
+              <span class="chip">Б ${num(per.protein || 0)}</span>
+              <span class="chip">Ж ${num(per.fat || 0)}</span>
+              <span class="chip">У ${num(per.carbs || 0)}</span>
+              ${d.total_grams ? `<span class="chip">${num(d.total_grams)} г всего</span>` : ""}
+            </div>
+          </div>
+          ${ings.length ? `
+            <div style="font-size:12px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Ингредиенты</div>
+            <div class="list">${ings.map((i) => `
+              <div class="list-item">
+                <span class="grow">${esc(i.name)}</span>
+                <span class="muted" style="font-size:13px">${num(i.grams)} г</span>
+              </div>`).join("")}
+            </div>` : ""}`;
+      },
+      footer: (f, close) => {
+        f.innerHTML = `<button class="btn btn-ghost" data-x>Закрыть</button>`;
+        f.querySelector("[data-x]").addEventListener("click", close);
+      },
+    });
   }
 
   // -------- Reusable product search picker (returns chosen product via onPick) --------
-  function productSearchField(container, onPick) {
+  function productSearchField(container, onPick, fridgeMap = {}) {
     container.innerHTML = `
       <input class="input" data-q placeholder="Найти продукт…" autocomplete="off">
       <div data-res></div>`;
     const q = $("[data-q]", container), res = $("[data-res]", container);
     let timer = null;
     const search = async () => {
-      const items = await API.searchProducts(q.value.trim());
-      res.innerHTML = items.length ? `<div class="search-results">${items.map((it) =>
-        `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}" data-cal="${it.calories}"
+      const term = q.value.trim();
+      if (!term) { res.innerHTML = ""; return; }
+      const items = await API.searchProducts(term);
+      const inFridge = items.filter((it) => fridgeMap[it.name.trim().toLowerCase()]);
+      const notFridge = items.filter((it) => !fridgeMap[it.name.trim().toLowerCase()]);
+      const sorted = [...inFridge, ...notFridge];
+      res.innerHTML = sorted.length ? `<div class="search-results">${sorted.map((it) => {
+        const fi = fridgeMap[it.name.trim().toLowerCase()];
+        const badge = fi
+          ? `<span style="color:var(--ok);font-size:12px;font-weight:600;white-space:nowrap">имеется · ${fi.quantity}${fi.unit === "g" ? "г" : fi.unit}</span>`
+          : `<span class="cat">${num(it.calories)} ккал/100г</span>`;
+        return `<div class="opt" data-id="${it.id}" data-name="${esc(it.name)}" data-cal="${it.calories}"
           data-p="${it.protein}" data-f="${it.fat}" data-c="${it.carbs}">
-          <span>${esc(it.name)}</span><span class="cat">${num(it.calories)} ккал/100г</span></div>`).join("")}</div>`
+          <span>${esc(it.name)}</span>${badge}</div>`;
+      }).join("")}</div>`
         : `<div class="hint" style="padding:6px">Ничего не найдено</div>`;
       $$(".opt", res).forEach((o) => o.addEventListener("click", () => {
         onPick({ id: +o.dataset.id, name: o.dataset.name, calories: +o.dataset.cal,
@@ -1181,9 +1312,85 @@
     q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(search, 250); });
   }
 
+  // -------- Edit existing recipe --------
+  async function openEditDish(d, onSaved) {
+    const ingredients = (d.ingredients || []).map((i) => ({
+      id: i.product_id, name: i.name, grams: i.grams,
+      calories: 0, protein: 0, fat: 0, carbs: 0,
+    }));
+    let fridgeMap = {};
+    try {
+      const fi = await API.fridgeItems();
+      fi.forEach((f) => { fridgeMap[f.name.trim().toLowerCase()] = f; });
+    } catch (_) {}
+
+    openModal({
+      title: `Редактировать «${d.name}»`, width: "560px",
+      render: (body) => {
+        body.innerHTML = `
+          <div class="field"><label>Название блюда</label><input class="input" id="d-name" value="${esc(d.name)}"></div>
+          <div class="field"><label>Описание (необязательно)</label><input class="input" id="d-desc" value="${esc(d.description || "")}"></div>
+          <div class="field"><label>Добавить ингредиент</label><div id="d-search"></div></div>
+          <div class="divider"></div>
+          <div id="d-list"></div>
+          <div class="card" style="background:var(--surface-2);padding:12px;margin-top:8px" id="d-total"></div>`;
+        const list = $("#d-list", body), total = $("#d-total", body);
+
+        const redraw = () => {
+          list.innerHTML = ingredients.length ? `<div class="list">${ingredients.map((ing, i) => `
+            <div class="list-item">
+              <div class="grow"><div class="name">${esc(ing.name)}</div></div>
+              <input class="input ing-g" data-i="${i}" type="number" min="1" value="${ing.grams}" style="max-width:90px">
+              <span class="muted" style="font-size:13px">г</span>
+              <button class="icon-btn" data-rm="${i}">${icon("trash", "icon-sm")}</button>
+            </div>`).join("")}</div>` : `<div class="muted" style="font-size:13px">Пока без ингредиентов</div>`;
+          redrawTotals();
+          $$(".ing-g", list).forEach((inp) => inp.addEventListener("input", () => { ingredients[+inp.dataset.i].grams = +inp.value || 0; redrawTotals(); }));
+          $$("[data-rm]", list).forEach((b) => b.addEventListener("click", () => { ingredients.splice(+b.dataset.rm, 1); redraw(); }));
+        };
+        const redrawTotals = () => {
+          let c = 0, p = 0, f = 0, u = 0, g = 0;
+          ingredients.forEach((ing) => { const k = ing.grams / 100;
+            c += (ing.calories||0) * k; p += (ing.protein||0) * k; f += (ing.fat||0) * k; u += (ing.carbs||0) * k; g += ing.grams; });
+          const per = g ? 100 / g : 0;
+          total.innerHTML = `<div class="flex between"><b>Итого (${num(g)} г)</b><span class="kcal-tag">${num(c)} ккал</span></div>
+            <div class="muted" style="font-size:13px;margin-top:4px">На 100 г: ${num(c*per)} ккал · Б ${num(p*per)} · Ж ${num(f*per)} · У ${num(u*per)}</div>`;
+        };
+
+        productSearchField($("#d-search", body), (prod) => {
+          const found = ingredients.find((x) => x.id === prod.id);
+          if (found) found.grams += 100; else ingredients.push({ ...prod, grams: 100 });
+          redraw();
+        }, fridgeMap);
+        redraw();
+      },
+      footer: (f, close) => {
+        f.innerHTML = `<button class="btn btn-ghost" data-x>Отмена</button><button class="btn btn-primary" data-ok>Сохранить</button>`;
+        f.querySelector("[data-x]").addEventListener("click", close);
+        f.querySelector("[data-ok]").addEventListener("click", async () => {
+          const name = document.getElementById("d-name").value.trim();
+          if (!name) return toast("Укажите название блюда", "err");
+          if (!ingredients.length) return toast("Добавьте хотя бы один ингредиент", "err");
+          try {
+            await API.updateDish(d.id, {
+              name, description: document.getElementById("d-desc").value.trim(),
+              ingredients: ingredients.map((i) => ({ product_id: i.id, grams: i.grams })),
+            });
+            toast("Рецепт обновлён"); close(); if (onSaved) onSaved();
+          } catch (e) { toast(e.message, "err"); }
+        });
+      },
+    });
+  }
+
   // -------- Create own recipe (dish) --------
-  function openCreateDish(onSaved) {
+  async function openCreateDish(onSaved) {
     const ingredients = []; // {id,name,grams, per100...}
+    let fridgeMap = {};
+    try {
+      const fridgeItems = await API.fridgeItems();
+      fridgeItems.forEach((fi) => { fridgeMap[fi.name.trim().toLowerCase()] = fi; });
+    } catch (_) {}
     openModal({
       title: "Новый рецепт", width: "560px",
       render: (body) => {
@@ -1233,7 +1440,7 @@
           const found = ingredients.find((x) => x.id === prod.id);
           if (found) found.grams += 100; else ingredients.push({ ...prod, grams: 100 });
           redraw();
-        });
+        }, fridgeMap);
         redraw();
       },
       footer: (f, close) => {
