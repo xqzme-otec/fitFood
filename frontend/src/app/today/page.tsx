@@ -98,32 +98,37 @@ function StatTile({ label, value, target, unit, color, icon }: (typeof TILES)[nu
 
 function QuickSearch() {
   return (
-    <Autocomplete
-      freeSolo
-      openOnFocus
-      options={SUGGESTIONS}
-      groupBy={() => "Часто добавляемые"}
-      sx={{ maxWidth: 620 }}
-      slotProps={{ paper: { sx: { borderRadius: 3, mt: 0.5 } } }}
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          placeholder="Добавить продукт"
-          InputProps={{
-            ...params.InputProps,
-            sx: { borderRadius: 99, bgcolor: "background.paper", pl: 1 },
-            startAdornment: (
-              <>
-                <InputAdornment position="start">
-                  <SearchRoundedIcon color="action" />
-                </InputAdornment>
-                {params.InputProps.startAdornment}
-              </>
-            ),
-          }}
-        />
-      )}
-    />
+    <Box>
+      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+        Добавить продукт
+      </Typography>
+      <Autocomplete
+        freeSolo
+        openOnFocus
+        fullWidth
+        options={SUGGESTIONS}
+        groupBy={() => "Часто добавляемые"}
+        slotProps={{ paper: { sx: { borderRadius: 3, mt: 0.5 } } }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            placeholder="Например, куриное филе…"
+            InputProps={{
+              ...params.InputProps,
+              sx: { borderRadius: 99, bgcolor: "background.paper", pl: 1 },
+              startAdornment: (
+                <>
+                  <InputAdornment position="start">
+                    <SearchRoundedIcon color="action" />
+                  </InputAdornment>
+                  {params.InputProps.startAdornment}
+                </>
+              ),
+            }}
+          />
+        )}
+      />
+    </Box>
   );
 }
 
