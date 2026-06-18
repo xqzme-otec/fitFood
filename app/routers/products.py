@@ -12,8 +12,16 @@ from app.schemas.product import (
     ProductCreate,
     ProductOut,
 )
+from app.services.naming import clean_display_name
 
 router = APIRouter(tags=["catalog"])
+
+
+def _product_to_out(product: Product) -> ProductOut:
+    """Сериализация продукта с очисткой названия от каталожного мусора."""
+    out = ProductOut.model_validate(product)
+    out.name = clean_display_name(product.name) or product.name
+    return out
 
 
 def _dish_to_out(dish: Dish) -> DishOut:
@@ -43,7 +51,7 @@ def search_products(
         query = query.filter(Product.name.ilike(f"%{q}%"))
     if category:
         query = query.filter(Product.category == category)
-    return query.limit(limit).all()
+    return [_product_to_out(p) for p in query.limit(limit).all()]
 
 
 @router.get("/products/{product_id}", response_model=ProductOut)
@@ -51,7 +59,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     product = db.get(Product, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Продукт не найден")
-    return product
+    return _product_to_out(product)
 
 
 @router.post("/products", response_model=ProductOut, status_code=201)
