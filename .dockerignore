@@ -23,4 +23,9 @@ reports
 .DS_Store
 .vscode
 .idea
+
+# Node / Next.js — node_modules и локальные сборки пересобираются в stage 1
 node_modules
+**/node_modules
+frontend/.next
+frontend/out

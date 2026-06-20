@@ -12,6 +12,7 @@ from app.schemas.product import (
     ProductCreate,
     ProductOut,
 )
+from app.services.emoji import emoji_for
 from app.services.naming import clean_display_name
 
 router = APIRouter(tags=["catalog"])
@@ -28,6 +29,7 @@ def _dish_to_out(dish: Dish) -> DishOut:
     return DishOut(
         id=dish.id,
         name=dish.name,
+        emoji=emoji_for(dish.name, dish.category),
         description=dish.description,
         category=dish.category,
         total_grams=dish.total_grams,

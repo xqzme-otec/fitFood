@@ -29,6 +29,7 @@ class FridgeItemOut(BaseModel):
     id: int
     product_id: int | None
     name: str
+    emoji: str = "🍽️"
     category: str
     quantity: float
     unit: str
