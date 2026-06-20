@@ -1,26 +1,25 @@
 ## Summary
+Briefly describe the changes in this PR.
 
-<!-- What does this PR change and why? Link the related user story, e.g. US-10. -->
+## Related User Story / Issue
+Closes #
 
-## Related user story / issue
+## Acceptance Criteria Verification
+*Please verify that the changes meet the acceptance criteria of the linked issue:*
+- [ ] [ ] All acceptance criteria for the linked issue have been successfully met and tested.
 
-<!-- e.g. US-01, US-10, or #issue-number -->
-
-## Type of change
-
+## Type of Change
 - [ ] Feature
 - [ ] Bug fix
 - [ ] Documentation / report
 - [ ] Infrastructure / CI
 
 ## Checklist
-
 - [ ] The change builds / runs locally
 - [ ] Smoke check passes (`python smoke_test.py`) where applicable
 - [ ] Lychee link check passes (no broken Markdown links)
 - [ ] Self-reviewed the diff
-- [ ] At least one reviewer approval before merge to `main`
+- [ ] At least one reviewer approval before merge to main
 
-## How to test
-
-<!-- Steps a reviewer can follow to verify the change. -->
+## How to Test
+Describe how the reviewer can test these changes.
