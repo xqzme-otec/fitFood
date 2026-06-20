@@ -990,7 +990,7 @@
     const v = view();
     v.innerHTML = `
       <div class="page-head">
-        <div><h1>Добавить продукты</h1><div class="sub">Поиск по каталогу из базы продуктов</div></div>
+        <div><h1>Добавить продукты</h1><div class="sub">Поиск по каталогу — в рацион или в холодильник</div></div>
       </div>
       <div class="card" style="max-width:680px">
         <div style="display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:12px 16px">
@@ -1024,7 +1024,7 @@
             id: +o.dataset.id, name: o.dataset.name,
             per100: { calories: +o.dataset.cal, protein: +o.dataset.p, fat: +o.dataset.f, carbs: +o.dataset.c }
           };
-          openAddProductToFridge(prod);
+          openAddProduct(prod);
         }));
       } catch (e) { res.innerHTML = `<div class="hint err" style="padding:6px 0">${e.message}</div>`; }
     };
@@ -1033,34 +1033,75 @@
     q.focus();
   }
 
-  function openAddProductToFridge(prod) {
+  function openAddProduct(prod) {
+    let dest = "diary"; // diary | fridge
+    const per = prod.per100 || { calories: 0, protein: 0, fat: 0, carbs: 0 };
     openModal({
-      title: `Добавить «${prod.name}» в холодильник`,
+      title: `Добавить «${prod.name}»`,
       render: (body) => {
         body.innerHTML = `
-          <div class="row">
-            <div class="field"><label>Количество</label>
-              <input class="input" id="ap-amt" type="number" min="1" step="1" value="100"></div>
-            <div class="field"><label>Единица</label>
-              <select class="select" id="ap-unit"><option value="g">г</option><option value="ml">мл</option><option value="pcs">шт</option></select></div>
+          <div class="seg" id="ap-seg" style="margin-bottom:14px">
+            <button class="active" data-d="diary">В рацион</button>
+            <button data-d="fridge">В холодильник</button>
           </div>
-          <div class="field"><label>Срок годности</label>
-            <input class="input" id="ap-exp" type="date">
-            <span class="hint">Пусто → предложит LLM</span></div>`;
+          <div id="ap-body"></div>`;
+        const seg = $("#ap-seg", body), apBody = $("#ap-body", body);
+
+        const renderDiary = () => {
+          apBody.innerHTML = `
+            <div class="field"><label>Приём пищи</label>
+              <select class="select" id="ap-slot">${state.meals.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select></div>
+            <div class="field"><label>Количество, г/мл</label>
+              <input class="input" id="ap-amt" type="number" min="1" step="1" value="100"></div>
+            <div class="card" style="background:var(--surface-2);padding:12px" id="ap-prev"></div>`;
+          const amt = $("#ap-amt", apBody), prev = $("#ap-prev", apBody);
+          const upd = () => { const f = (+amt.value || 0) / 100;
+            prev.innerHTML = `<div class="flex between"><b>${esc(prod.name)}</b><span class="kcal-tag">${num(per.calories * f)} ккал</span></div>
+              <div class="muted" style="font-size:13px;margin-top:4px">Б ${num(per.protein * f)} · Ж ${num(per.fat * f)} · У ${num(per.carbs * f)}</div>`; };
+          amt.addEventListener("input", upd); upd();
+        };
+
+        const renderFridge = () => {
+          apBody.innerHTML = `
+            <div class="row">
+              <div class="field"><label>Количество</label>
+                <input class="input" id="ap-amt" type="number" min="1" step="1" value="100"></div>
+              <div class="field"><label>Единица</label>
+                <select class="select" id="ap-unit"><option value="g">г</option><option value="ml">мл</option><option value="pcs">шт</option></select></div>
+            </div>
+            <div class="field"><label>Срок годности</label>
+              <input class="input" id="ap-exp" type="date">
+              <span class="hint">Пусто → предложит LLM</span></div>`;
+        };
+
+        renderDiary();
+        seg.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-d]"); if (!b) return;
+          dest = b.dataset.d;
+          $$("#ap-seg button", body).forEach((x) => x.classList.toggle("active", x === b));
+          if (dest === "diary") renderDiary(); else renderFridge();
+        });
       },
       footer: (f, close) => {
-        f.innerHTML = `<button class="btn btn-ghost" data-x>Отмена</button><button class="btn btn-primary" data-ok>В холодильник</button>`;
+        f.innerHTML = `<button class="btn btn-ghost" data-x>Отмена</button><button class="btn btn-primary" data-ok>Добавить</button>`;
         f.querySelector("[data-x]").addEventListener("click", close);
         f.querySelector("[data-ok]").addEventListener("click", async () => {
           const amount = +document.getElementById("ap-amt").value;
           if (!amount || amount <= 0) return toast("Укажите количество", "err");
-          const unit = document.getElementById("ap-unit").value;
-          const expiry = document.getElementById("ap-exp").value;
-          const payload = { name: prod.name, quantity: amount, unit, product_id: prod.id };
-          if (expiry) payload.expiry_date = expiry;
           try {
-            await API.fridgeAdd(payload);
-            toast("Добавлено в холодильник"); close();
+            if (dest === "diary") {
+              const slot = +document.getElementById("ap-slot").value;
+              await API.addEntry({ meal_slot_id: slot, product_id: prod.id, amount, entry_date: state.today });
+              toast("Добавлено в рацион");
+            } else {
+              const unit = document.getElementById("ap-unit").value;
+              const expiry = document.getElementById("ap-exp").value;
+              const payload = { name: prod.name, quantity: amount, unit, product_id: prod.id };
+              if (expiry) payload.expiry_date = expiry;
+              await API.fridgeAdd(payload);
+              toast("Добавлено в холодильник");
+            }
+            close();
           } catch (e) { toast(e.message, "err"); }
         });
       },
