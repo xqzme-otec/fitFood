@@ -24,7 +24,7 @@ def test_emoji_dish_keywords():
 def test_emoji_category_fallback():
     """Если продукт не распознан — берётся эмодзи категории."""
     # «цуккини» нет в словаре продуктов, но категория задана.
-    assert emoji_for("Цуккини", "Овощи") == "🥦"
+    assert emoji_for("Цуккини", "Овощи и фрукты") == "🥦"
     assert emoji_for("Нечто", "Молочка") == "🥛"
 
 

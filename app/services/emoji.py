@@ -52,28 +52,24 @@ PRODUCT_EMOJI: dict[str, str] = {
 # если продукт не распознан по названию — берём эмодзи его категории.
 CATEGORY_EMOJI: dict[str, str] = {
     # категории холодильника (FridgeCategory)
-    FridgeCategory.cereals.value: "🌾",     # Крупы
-    FridgeCategory.vegetables.value: "🥦",  # Овощи
-    FridgeCategory.fruits.value: "🍎",      # Фрукты
-    FridgeCategory.meat.value: "🍖",        # Мясо
-    FridgeCategory.fish.value: "🐟",        # Рыба
-    FridgeCategory.dairy.value: "🥛",       # Молочка
-    FridgeCategory.sauces.value: "🥫",      # Соусы
-    FridgeCategory.other.value: "🥗",       # Прочее
-    # магазинные категории / категории блюд
-    "Готовая еда": "🍲",
+    FridgeCategory.meat_fish.value: "🍖",    # Мясо и рыба
+    FridgeCategory.ready_made.value: "🍲",   # Готовая еда
+    FridgeCategory.dairy.value: "🥛",        # Молочка
+    FridgeCategory.grocery.value: "🌾",      # Бакалея
+    FridgeCategory.sweets.value: "🍫",       # Сладости
+    FridgeCategory.snacks.value: "🍿",       # Снеки
+    FridgeCategory.veg_fruit.value: "🥦",    # Овощи и фрукты
+    FridgeCategory.tea_coffee.value: "☕",   # Чай, кофе, какао
+    FridgeCategory.drinks.value: "🥤",       # Напитки
+    FridgeCategory.other.value: "🥗",        # Прочее
+    # дополнительные магазинные категории (на случай иных значений от классификатора)
     "Хлеб и выпечка": "🍞",
-    "Бакалея": "🌾",
-    "Сладости": "🍫",
-    "Снеки": "🍿",
     "Консервы": "🥫",
     "Замороженные продукты": "🧊",
     "Вода и напитки": "🥤",
-    "Чай, кофе, какао": "☕",
     "Молочный прилавок": "🥛",
     "Мясо, птица, рыба": "🍖",
     "Рыба, морепродукты": "🐟",
-    "Овощи и фрукты": "🥦",
     # непродукты из чека
     "Отброшено (не еда)": "🚫",
 }
