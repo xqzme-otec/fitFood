@@ -35,6 +35,7 @@ class IngredientOut(BaseModel):
 class DishOut(BaseModel):
     id: int
     name: str
+    emoji: str = "🍽️"
     description: str
     category: str
     total_grams: float

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from app.models.enums import ReceiptStatus
+from app.services.emoji import emoji_for
 
 
 class ReceiptItemOut(BaseModel):
@@ -20,6 +21,11 @@ class ReceiptItemOut(BaseModel):
     accepted: bool
 
     model_config = {"from_attributes": True}
+
+    @computed_field
+    @property
+    def emoji(self) -> str:
+        return emoji_for(self.parsed_name, self.category)
 
 
 class ReceiptOut(BaseModel):

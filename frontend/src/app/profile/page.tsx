@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
@@ -14,12 +15,32 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/lib/toast";
 import { GOAL_LABELS, num } from "@/lib/format";
-import AppShell from "@/components/AppShell";
+import { getUserPrefs, setUserPrefs } from "@/lib/userPrefs";
+import DesignShell from "@/components/DesignShell";
 import type { WeightRecord } from "@/lib/types";
 
 function ProfileContent() {
-  const { profile, targets, meals, reloadTargets } = useAuth();
+  const { profile, targets, meals, reloadTargets, user } = useAuth();
   const toast = useToast();
+  const [accName, setAccName] = useState("");
+  const [accPhoto, setAccPhoto] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const p = getUserPrefs();
+    setAccName(p.name ?? "");
+    setAccPhoto(p.photo);
+  }, []);
+
+  const onPhotoFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => setAccPhoto(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const saveAccount = () => {
+    setUserPrefs({ name: accName.trim() || undefined, photo: accPhoto });
+    toast("Профиль обновлён");
+  };
   const [weight, setWeight] = useState("");
   const [calories, setCalories] = useState("");
   const [macros, setMacros] = useState({ protein_g: "", fat_g: "", carb_g: "" });
@@ -96,6 +117,42 @@ function ProfileContent() {
       <Typography variant="h2">Профиль</Typography>
 
       <Grid container spacing={3}>
+        {/* Аккаунт: имя и фото (косметика, хранится локально) */}
+        <Grid size={{ xs: 12 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h4" sx={{ mb: 2 }}>
+                Аккаунт
+              </Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={3} alignItems={{ xs: "flex-start", sm: "center" }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Avatar src={accPhoto} sx={{ width: 72, height: 72, bgcolor: "secondary.main", fontSize: 28 }}>
+                    {(accName || user?.email || "?").slice(0, 1).toUpperCase()}
+                  </Avatar>
+                  <Stack spacing={1}>
+                    <Button component="label" variant="outlined" size="small">
+                      Загрузить фото
+                      <input hidden type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && onPhotoFile(e.target.files[0])} />
+                    </Button>
+                    {accPhoto && (
+                      <Button size="small" color="inherit" onClick={() => setAccPhoto(undefined)}>
+                        Убрать фото
+                      </Button>
+                    )}
+                  </Stack>
+                </Stack>
+                <TextField label="Имя пользователя" value={accName} onChange={(e) => setAccName(e.target.value)} sx={{ flex: 1, minWidth: 220 }} />
+                <Button variant="contained" onClick={saveAccount}>
+                  Сохранить
+                </Button>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
+                Email: {user?.email}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* Норма КБЖУ */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: "100%" }}>
@@ -241,8 +298,8 @@ function ProfileContent() {
 
 export default function ProfilePage() {
   return (
-    <AppShell>
+    <DesignShell>
       <ProfileContent />
-    </AppShell>
+    </DesignShell>
   );
 }

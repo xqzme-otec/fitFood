@@ -94,6 +94,7 @@ export interface Ingredient {
 export interface Dish {
   id: number;
   name: string;
+  emoji: string;
   description: string;
   category: string;
   total_grams: number;
@@ -176,6 +177,7 @@ export interface FridgeItem {
   id: number;
   product_id: number | null;
   name: string;
+  emoji: string;
   category: string;
   quantity: number;
   unit: string;
@@ -196,6 +198,7 @@ export interface ReceiptItem {
   id: number;
   raw_name: string;
   parsed_name: string;
+  emoji: string;
   category: string;
   quantity: number;
   unit: string;

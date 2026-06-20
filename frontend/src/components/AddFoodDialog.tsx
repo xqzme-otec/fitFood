@@ -35,9 +35,10 @@ interface Props {
   onAdded: () => void;
   today: string;
   fixedSlotId?: number;
+  presetProduct?: Product | null;
 }
 
-export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fixedSlotId }: Props) {
+export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fixedSlotId, presetProduct }: Props) {
   const toast = useToast();
   const [mode, setMode] = useState<Mode>("product");
   const [options, setOptions] = useState<Option[]>([]);
@@ -52,13 +53,13 @@ export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fi
   useEffect(() => {
     if (!open) return;
     setMode("product");
-    setSelected(null);
+    setSelected(presetProduct ? { ...presetProduct, _kind: "product" as const } : null);
     setAmount("100");
     setSlotId(fixedSlotId ?? meals[0]?.id ?? "");
-    setOptions([]);
+    setOptions(presetProduct ? [{ ...presetProduct, _kind: "product" as const }] : []);
     setShowDeduct(false);
     api.fridgeItems().then(setFridge).catch(() => setFridge([]));
-  }, [open, fixedSlotId, meals]);
+  }, [open, fixedSlotId, meals, presetProduct]);
 
   const fridgeByProduct = useMemo(() => {
     const m = new Map<number, FridgeItem>();
@@ -68,11 +69,57 @@ export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fi
     return m;
   }, [fridge]);
 
+  // Сопоставление по названию — на случай, когда у позиции холодильника нет
+  // product_id или он отличается от product_id ингредиента блюда.
+  const fridgeByName = useMemo(() => {
+    const m = new Map<string, FridgeItem>();
+    fridge.forEach((f) => m.set(f.name.trim().toLowerCase(), f));
+    return m;
+  }, [fridge]);
+
+  const findFridgeItem = (productId: number, name: string): FridgeItem | undefined =>
+    fridgeByProduct.get(productId) ?? fridgeByName.get(name.trim().toLowerCase());
+
+  // Продукты из холодильника — показываем по умолчанию (до ввода запроса).
+  const fridgeOptions = useMemo<Option[]>(
+    () =>
+      fridge
+        .filter((f) => f.product_id != null)
+        .map((f) => ({
+          _kind: "product" as const,
+          id: f.product_id as number,
+          name: f.name,
+          category: f.category,
+          unit: f.unit,
+          calories: f.kbju_100g?.calories ?? 0,
+          protein: f.kbju_100g?.protein ?? 0,
+          fat: f.kbju_100g?.fat ?? 0,
+          carbs: f.kbju_100g?.carbs ?? 0,
+        })),
+    [fridge],
+  );
+
+  // При открытии / смене режима показываем дефолтные варианты.
+  // Если есть предвыбранный продукт — держим его в списке опций.
+  useEffect(() => {
+    if (!open) return;
+    if (mode === "product") {
+      const keepPreset = selected && selected._kind === "product" && !fridgeOptions.some((o) => o.id === selected.id);
+      setOptions(keepPreset ? [selected, ...fridgeOptions] : fridgeOptions);
+    } else {
+      api.searchDishes("").then((items) => setOptions(items.map((d) => ({ ...d, _kind: "dish" as const })))).catch(() => setOptions([]));
+    }
+  }, [open, mode, fridgeOptions, selected]);
+
   const runSearch = (term: string) => {
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(async () => {
       try {
         if (mode === "product") {
+          if (!term.trim()) {
+            setOptions(fridgeOptions);
+            return;
+          }
           const items = await api.searchProducts(term);
           setOptions(items.map((p) => ({ ...p, _kind: "product" as const })));
         } else {
@@ -103,7 +150,7 @@ export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fi
     if (!selected || selected._kind !== "dish" || !selected.total_grams) return [];
     const scale = amt / selected.total_grams;
     return selected.ingredients.map((ing) => {
-      const fi = fridgeByProduct.get(ing.product_id);
+      const fi = findFridgeItem(ing.product_id, ing.name);
       return {
         name: ing.name,
         needed: Math.round(ing.grams * scale),
@@ -111,7 +158,8 @@ export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fi
         available: !!fi,
       };
     });
-  }, [selected, amt, fridgeByProduct]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, amt, fridgeByProduct, fridgeByName]);
 
   const handleSubmit = async () => {
     if (!selected) return toast("Выберите продукт или блюдо", "error");
@@ -125,7 +173,7 @@ export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fi
         entry_date: today,
         ...(selected._kind === "product" ? { product_id: selected.id } : { dish_id: selected.id }),
       });
-      // Списываем доступные ингредиенты блюда из холодильника.
+      // Списываем из холодильника: для блюда — ингредиенты, для продукта — сам продукт.
       if (selected._kind === "dish") {
         await Promise.all(
           deductions
@@ -137,6 +185,13 @@ export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fi
                 : api.fridgeUpdate(d.item!.id, { quantity: remaining });
             }),
         );
+      } else {
+        const fi = findFridgeItem(selected.id, selected.name);
+        // Списываем только при совместимых единицах (вес/объём).
+        if (fi && (fi.unit === "g" || fi.unit === "ml")) {
+          const remaining = fi.quantity - amt;
+          await (remaining <= 0 ? api.fridgeDelete(fi.id) : api.fridgeUpdate(fi.id, { quantity: remaining }));
+        }
       }
       toast("Добавлено в дневник");
       onAdded();
@@ -150,9 +205,11 @@ export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fi
 
   const p = selected ? per100(selected) : null;
 
+  const mealName = fixedSlotId ? meals.find((m) => m.id === fixedSlotId)?.name : null;
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Добавить в дневник</DialogTitle>
+      <DialogTitle>{mealName ? `Добавить в «${mealName}»` : "Добавить в дневник"}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           <ToggleButtonGroup
@@ -179,7 +236,7 @@ export default function AddFoodDialog({ open, onClose, meals, onAdded, today, fi
             getOptionLabel={(o) => o.name}
             isOptionEqualToValue={(a, b) => a.id === b.id && a._kind === b._kind}
             onInputChange={(_, v) => runSearch(v)}
-            noOptionsText="Начните вводить название"
+            noOptionsText={mode === "product" ? "Ничего не найдено" : "Начните вводить название"}
             renderOption={(props, o) => {
               const fi = o._kind === "product" ? fridgeByProduct.get(o.id) : undefined;
               const cal = o._kind === "product" ? o.calories : o.per_100g.calories || 0;
