@@ -15,7 +15,6 @@ import { alpha } from "@mui/material/styles";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
-import WaterDropRoundedIcon from "@mui/icons-material/WaterDropRounded";
 import BoltRoundedIcon from "@mui/icons-material/BoltRounded";
 import EggAltRoundedIcon from "@mui/icons-material/EggAltRounded";
 import GrainRoundedIcon from "@mui/icons-material/GrainRounded";
@@ -30,8 +29,10 @@ const TILES = [
   { label: "Белки", value: 96, target: 140, unit: "г", color: "#2E7D32", icon: <EggAltRoundedIcon /> },
   { label: "Жиры", value: 48, target: 70, unit: "г", color: "#F9A825", icon: <BoltRoundedIcon /> },
   { label: "Углеводы", value: 180, target: 240, unit: "г", color: "#0288D1", icon: <GrainRoundedIcon /> },
-  { label: "Вода", value: 1.4, target: 2.0, unit: "л", color: "#26A0DA", icon: <WaterDropRoundedIcon /> },
 ];
+
+// Серия дней подряд: прогресс к следующему рубежу (демо).
+const STREAK = { days: 7, nextMilestone: 14 };
 
 const MEALS = [
   {
@@ -96,6 +97,51 @@ function StatTile({ label, value, target, unit, color, icon }: (typeof TILES)[nu
   );
 }
 
+function StreakTile() {
+  const pct = Math.min((STREAK.days / STREAK.nextMilestone) * 100, 100);
+  const left = Math.max(STREAK.nextMilestone - STREAK.days, 0);
+  return (
+    <Card
+      sx={{
+        height: "100%",
+        color: "#fff",
+        border: "none",
+        background: "linear-gradient(135deg, #2E7D32, #66BB6A)",
+      }}
+    >
+      <CardContent>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+          <Box sx={{ display: "flex" }}>
+            <LocalFireDepartmentRoundedIcon />
+          </Box>
+          <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.9 }}>
+            🔥 серия
+          </Typography>
+        </Stack>
+        <Typography variant="h4" sx={{ fontWeight: 800 }}>
+          {STREAK.days}
+          <Box component="span" sx={{ fontSize: 13, fontWeight: 600, opacity: 0.85 }}>
+            {" "}дней подряд
+          </Box>
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 1, opacity: 0.85 }}>
+          Ещё {left} до рубежа {STREAK.nextMilestone} дней
+        </Typography>
+        <LinearProgress
+          variant="determinate"
+          value={pct}
+          sx={{
+            height: 6,
+            borderRadius: 3,
+            bgcolor: "rgba(255,255,255,0.25)",
+            "& .MuiLinearProgress-bar": { bgcolor: "#fff", borderRadius: 3 },
+          }}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 function QuickSearch() {
   return (
     <Box>
@@ -133,27 +179,10 @@ function QuickSearch() {
 }
 
 function Dashboard() {
-  const dateLabel = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
-
   return (
     <Stack spacing={3.5}>
       {/* Минималистичный поиск сверху */}
       <QuickSearch />
-
-      {/* Приветствие */}
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
-        <Box>
-          <Typography variant="h2" sx={{ fontWeight: 800 }}>
-            Добрый день, Анна 👋
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ textTransform: "capitalize" }}>
-            {dateLabel}
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Chip icon={<LocalFireDepartmentRoundedIcon />} label="7 дней подряд" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
-        </Stack>
-      </Stack>
 
       {/* Герой: кольцо калорий + bento-плитки */}
       <Grid container spacing={3}>
@@ -184,6 +213,9 @@ function Dashboard() {
                 <StatTile {...t} />
               </Grid>
             ))}
+            <Grid size={{ xs: 6 }}>
+              <StreakTile />
+            </Grid>
           </Grid>
         </Grid>
       </Grid>
