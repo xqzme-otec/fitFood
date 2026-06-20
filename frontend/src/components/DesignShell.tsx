@@ -17,7 +17,6 @@ import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { alpha, useTheme } from "@mui/material/styles";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
-import MenuBookRoundedIcon from "@mui/icons-material/MenuBookRounded";
 import KitchenRoundedIcon from "@mui/icons-material/KitchenRounded";
 import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
@@ -33,7 +32,6 @@ const DRAWER_WIDTH = 268;
 
 const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: "/today", label: "Главная", icon: <DashboardRoundedIcon /> },
-  { href: "/diary", label: "Дневник", icon: <MenuBookRoundedIcon /> },
   { href: "/fridge", label: "Холодильник", icon: <KitchenRoundedIcon /> },
   { href: "/recipes", label: "Рецепты", icon: <RestaurantMenuRoundedIcon /> },
   { href: "/receipt", label: "Сканер чека", icon: <ReceiptLongRoundedIcon /> },
