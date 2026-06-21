@@ -117,7 +117,7 @@ US-02 (Recipe Recommendations) and US-05 (Daily Goal Notifications) were exclude
 
 ## 7. PBI Types, Statuses, and Workflow
 
-PBI types, Work Status values, acceptance criteria rules, Sprint milestone usage, and Definition of Done are defined in [`Process_Requirements.md`](../../Process_Requirements.md).
+PBI types, Work Status values, acceptance criteria rules, Sprint milestone usage, and Definition of Done are defined in [`Process_Requirements.md`](https://gitlab.pg.innopolis.university/swp_26/swp_26/-/blob/main/Process_Requirements.md).
 
 **PBI types used in this project:**
 
@@ -130,9 +130,9 @@ PBI types, Work Status values, acceptance criteria rules, Sprint milestone usage
 
 **Task decomposition:** each user story selected for Sprint 1 was decomposed into linked supporting PBIs (technical sub-tasks). User stories are not closed until all their supporting PBIs are Done.
 
-**Issue templates:** [User Story](../../.github/ISSUE_TEMPLATE/user_story.yml) · [Other PBI](../../.github/ISSUE_TEMPLATE/other_pbi.yml) · [Course Task](../../.github/ISSUE_TEMPLATE/course_task.yml) · [Bug Report](../../.github/ISSUE_TEMPLATE/bug_report.yml)
+**Issue templates:** [User Story](../../.github/ISSUE_TEMPLATE/user-story.md) · [Other PBI](../../.github/ISSUE_TEMPLATE/other-pbi.md) · [Course Task](../../.github/ISSUE_TEMPLATE/course-task.md) · [Bug Report](../../.github/ISSUE_TEMPLATE/bug-report.md)
 
-**PR template:** [`.github/pull_request_template.md`](../../.github/pull_request_template.md)
+**PR template:** [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md)
 
 ---
 
