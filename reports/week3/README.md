@@ -215,7 +215,7 @@ Each team member pushed at least one commit, created at least one issue-linked P
 |---|---|
 | Deployed MVP v1 | [fitfood-2ol0.onrender.com](https://fitfood-2ol0.onrender.com/#/fridge) |
 | Root README (access & run instructions) | [`README.md`](../../README.md) |
-| Video demonstration (<2 min) | _Add link before submission_ |
+| Video demonstration (<2 min) | [Video](https://drive.google.com/file/d/1skfvNK2yCVh-acfnuSRsyUPqqVO-nYiM/view?usp=sharing) |
 | Product Backlog board | [GitHub Projects](https://github.com/users/coldtime108/projects/1/views/1) |
 | Sprint 1 Backlog view | [Sprint 1 view](https://github.com/users/coldtime108/projects/1/views/1) |
 | Sprint 1 milestone | [Milestone](https://github.com/xqzme-otec/fitFood/milestone/1) |
