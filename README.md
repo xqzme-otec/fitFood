@@ -4,7 +4,7 @@
 дневник питания, каталог продуктов/блюд, холодильник с распознаванием чеков
 (OCR + LLM, мок) и рекомендации рецептов.
 
-DEPLOYED PROJECT https://fitfood-2ol0.onrender.com/#/fridge (but innopolis vm has problems and we deployed it in another server)
+DEPLOYED PROJECT http://10.93.26.202:8000/
 
 Проект запускается **без внешних ключей**: LLM и OCR работают в детерминированном
 мок-режиме, БД по умолчанию — SQLite. ML-классификатор категорий использует
