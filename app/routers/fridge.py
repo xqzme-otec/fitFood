@@ -86,6 +86,8 @@ def update_item(
         item.quantity = payload.quantity
     if payload.expiry_date is not None:
         item.expiry_date = payload.expiry_date
+    if payload.category is not None:
+        item.category = payload.category
     db.commit()
     db.refresh(item)
     return fridge_service.serialize_item(item)

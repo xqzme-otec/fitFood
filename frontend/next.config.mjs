@@ -4,6 +4,7 @@ const isDev = process.env.NODE_ENV === "development";
 // Префиксы API бэкенда — в dev проксируются на FastAPI (:8000),
 // в проде фронт раздаётся тем же FastAPI, поэтому пути относительные.
 const API_PREFIXES = [
+  "api",
   "auth",
   "profile",
   "products",
