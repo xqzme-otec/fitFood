@@ -7,6 +7,7 @@ import CardContent from "@mui/material/CardContent";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
@@ -15,12 +16,10 @@ import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
 import UploadFileRoundedIcon from "@mui/icons-material/UploadFileRounded";
 import DocumentScannerRoundedIcon from "@mui/icons-material/DocumentScannerRounded";
-import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
-import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import DesignShell from "@/components/DesignShell";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/toast";
-import { num } from "@/lib/format";
+import { FRIDGE_CATEGORIES, num } from "@/lib/format";
 import type { Receipt } from "@/lib/types";
 
 const DEMO_TEXT =
@@ -29,6 +28,9 @@ const DEMO_TEXT =
   "Салфетки влажные 15шт 59.90\nТворог 9% 200г 89.90\nБананы 1.2кг 119.40";
 
 const unitLabel = (u: string) => (u === "ml" ? "мл" : u === "pcs" ? "шт" : "г");
+
+// Маркер «не еда» — совпадает с DROPPED_CATEGORY на бэкенде (app/services/receipt.py).
+const DROPPED = "Отброшено (не еда)";
 
 function UploadCard({
   busy,
@@ -103,12 +105,19 @@ function ReceiptContent() {
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [accepted, setAccepted] = useState<Record<number, boolean>>({});
+  // Категория, выбранная пользователем (если ML определил неправильно).
+  const [categories, setCategories] = useState<Record<number, string>>({});
 
   const onScanned = (r: Receipt) => {
     setReceipt(r);
-    const init: Record<number, boolean> = {};
-    r.items.forEach((it) => (init[it.id] = it.is_food));
-    setAccepted(init);
+    const initAcc: Record<number, boolean> = {};
+    const initCat: Record<number, string> = {};
+    r.items.forEach((it) => {
+      initAcc[it.id] = it.is_food;
+      initCat[it.id] = it.category;
+    });
+    setAccepted(initAcc);
+    setCategories(initCat);
   };
 
   const scanText = async (text: string) => {
@@ -138,11 +147,16 @@ function ReceiptContent() {
     if (!receipt) return;
     setBusy(true);
     try {
-      const items = receipt.items.map((it) => ({ item_id: it.id, accepted: !!accepted[it.id] }));
+      const items = receipt.items.map((it) => ({
+        item_id: it.id,
+        accepted: !!accepted[it.id],
+        category: categories[it.id] ?? it.category,
+      }));
       const added = await api.confirmReceipt(receipt.id, items);
       toast(`Добавлено в холодильник: ${added.length}`);
       setReceipt(null);
       setAccepted({});
+      setCategories({});
     } catch (e) {
       toast(e instanceof Error ? e.message : "Ошибка", "error");
     } finally {
@@ -150,9 +164,19 @@ function ReceiptContent() {
     }
   };
 
-  const foodCount = receipt?.items.filter((i) => i.is_food).length ?? 0;
-  const droppedCount = receipt?.items.filter((i) => !i.is_food).length ?? 0;
-  const selectedCount = receipt?.items.filter((i) => accepted[i.id]).length ?? 0;
+  // Смена категории. Перевод «Отброшено» -> реальная категория автоматически
+  // включает галочку (продукт спасён), и наоборот.
+  const changeCategory = (id: number, value: string) => {
+    const was = categories[id];
+    setCategories((c) => ({ ...c, [id]: value }));
+    if (value === DROPPED) setAccepted((a) => ({ ...a, [id]: false }));
+    else if (was === DROPPED) setAccepted((a) => ({ ...a, [id]: true }));
+  };
+
+  const catOf = (it: Receipt["items"][number]) => categories[it.id] ?? it.category;
+  const foodCount = receipt?.items.filter((i) => catOf(i) !== DROPPED).length ?? 0;
+  const droppedCount = receipt?.items.filter((i) => catOf(i) === DROPPED).length ?? 0;
+  const selectedCount = receipt?.items.filter((i) => accepted[i.id] && catOf(i) !== DROPPED).length ?? 0;
 
   return (
     <Stack spacing={3.5}>
@@ -180,36 +204,50 @@ function ReceiptContent() {
               </Stack>
             </Stack>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Непродукты сняты автоматически. Отметьте, что добавить в холодильник.
+              Непродукты сняты автоматически. Поправьте категорию у любой позиции — в том числе
+              верните отброшенное в холодильник, выбрав ему категорию. Отметьте, что добавить.
             </Typography>
 
             <Stack divider={<Divider flexItem />}>
-              {receipt.items.map((it) => (
-                <Stack key={it.id} direction="row" alignItems="center" spacing={1.5} sx={{ py: 1.5, opacity: it.is_food ? 1 : 0.65 }}>
-                  <Checkbox checked={!!accepted[it.id]} onChange={(e) => setAccepted((a) => ({ ...a, [it.id]: e.target.checked }))} />
-                  <Box sx={{ display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: "50%", bgcolor: alpha("#2E7D32", 0.08), fontSize: 22, flex: "none" }}>
-                    {it.emoji}
-                  </Box>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 700 }} noWrap>
-                      {it.parsed_name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {num(it.quantity)} {unitLabel(it.unit)}
-                      {it.price != null ? ` · ${num(it.price)} ₽` : ""}
-                      {it.is_food && it.expiry_date ? ` · до ${it.expiry_date}` : ""}
-                    </Typography>
-                  </Box>
-                  <Chip
-                    size="small"
-                    icon={it.is_food ? <CheckCircleRoundedIcon /> : <BlockRoundedIcon />}
-                    color={it.is_food ? "success" : "default"}
-                    variant={it.is_food ? "filled" : "outlined"}
-                    label={it.is_food ? it.category : "Отброшено"}
-                    sx={{ fontWeight: 600 }}
-                  />
-                </Stack>
-              ))}
+              {receipt.items.map((it) => {
+                const cat = catOf(it);
+                const dropped = cat === DROPPED;
+                // Опции: «Отброшено» + все категории (+ исходная, если она вне списка).
+                const options = [DROPPED, ...FRIDGE_CATEGORIES];
+                if (!options.includes(it.category)) options.splice(1, 0, it.category);
+                return (
+                  <Stack key={it.id} direction="row" alignItems="center" spacing={1.5} sx={{ py: 1.5, opacity: dropped ? 0.6 : 1 }}>
+                    <Checkbox checked={!!accepted[it.id]} onChange={(e) => setAccepted((a) => ({ ...a, [it.id]: e.target.checked }))} />
+                    <Box sx={{ display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: "50%", bgcolor: alpha("#2E7D32", 0.08), fontSize: 22, flex: "none" }}>
+                      {it.emoji}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 700, textDecoration: dropped ? "line-through" : "none" }} noWrap>
+                        {it.parsed_name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {num(it.quantity)} {unitLabel(it.unit)}
+                        {it.price != null ? ` · ${num(it.price)} ₽` : ""}
+                        {!dropped && it.expiry_date ? ` · до ${it.expiry_date}` : ""}
+                      </Typography>
+                    </Box>
+                    <TextField
+                      select
+                      size="small"
+                      label="Категория"
+                      value={cat}
+                      onChange={(e) => changeCategory(it.id, e.target.value)}
+                      sx={{ minWidth: 188, flex: "none" }}
+                    >
+                      {options.map((c) => (
+                        <MenuItem key={c} value={c}>
+                          {c === DROPPED ? "Отброшено (не еда)" : c}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Stack>
+                );
+              })}
             </Stack>
 
             <Stack direction="row" spacing={1.5} sx={{ mt: 2.5 }}>

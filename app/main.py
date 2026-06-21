@@ -16,6 +16,7 @@ from app.routers import (
     products,
     profile,
     receipts,
+    recipes,
     recommendations,
 )
 
@@ -49,6 +50,7 @@ app.include_router(products.router)
 app.include_router(meals.router)
 app.include_router(fridge.router)
 app.include_router(receipts.router)
+app.include_router(recipes.router)
 app.include_router(recommendations.router)
 
 

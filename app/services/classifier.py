@@ -31,7 +31,7 @@ SHOP_TO_FRIDGE: dict[str, FridgeCategory] = {
     "Рыба, морепродукты": FridgeCategory.meat_fish,
     "Сладости": FridgeCategory.sweets,
     "Снеки": FridgeCategory.snacks,
-    "Хлеб и выпечка": FridgeCategory.grocery,
+    "Хлеб и выпечка": FridgeCategory.bakery,
     "Чай, кофе, какао": FridgeCategory.tea_coffee,
 }
 

@@ -18,6 +18,10 @@ import type {
   Receipt,
   ReceiptItemConfirm,
   Recommendation,
+  RecipeDetail,
+  RecipeList,
+  RecipeMenu,
+  RecipeQuery,
   Token,
   User,
   WeightRecord,
@@ -189,4 +193,16 @@ export const api = {
     request<Recommendation[]>(
       "/recommendations" + (mealSlotId ? "?meal_slot_id=" + mealSlotId : ""),
     ),
+
+  // --- Recipe catalog (food.ru) — под /api/recipes, чтобы не конфликтовать
+  //     со страницей /recipes (см. next.config.mjs) ---
+  recipeMenus: () => request<RecipeMenu[]>("/api/recipes/menus"),
+  recipes: (params: RecipeQuery = {}) => {
+    const qs = Object.entries(params)
+      .filter(([, v]) => v !== "" && v != null)
+      .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    return request<RecipeList>("/api/recipes" + (qs ? "?" + qs : ""));
+  },
+  recipe: (id: number) => request<RecipeDetail>(`/api/recipes/${id}`),
 };
