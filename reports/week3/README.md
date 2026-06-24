@@ -50,7 +50,7 @@ The following feedback points from the 14 June customer review (Assignment 2) we
 |---|---|
 | US-07 priority raised from Could Have to Should Have | Updated in `docs/user-stories.md` and issue [#27](https://github.com/xqzme-otec/fitFood/issues/27) |
 | Expiry date values must be real, not mocked | Implemented with live shelf-life calculation (US-06, [#26](https://github.com/xqzme-otec/fitFood/issues/26)) |
-| Send screen recording of the user flow for review | Screen recording sent to customer; deployed app available at [fitfood-2ol0.onrender.com](https://fitfood-2ol0.onrender.com/#/fridge) |
+| Send screen recording of the user flow for review | Screen recording sent to customer; deployed app available at [fitfood-2ol0.onrender.com](http://10.93.26.202:8000/) |
 | UI colour scheme needs redesign (placeholder pink) | Noted as a Should Have item for Sprint 2; not blocking MVP v1 |
 | Add product suggestion to KBJU notification (Could Have) | Logged as a new Could Have story for Sprint 3 |
 | Receipt/QR scanning not yet implemented | Deferred to Sprint 2; manual text input confirmed as acceptable for MVP v1 |
@@ -213,7 +213,7 @@ Each team member pushed at least one commit, created at least one issue-linked P
 
 | Artifact | Link |
 |---|---|
-| Deployed MVP v1 | [fitfood-2ol0.onrender.com](https://fitfood-2ol0.onrender.com/#/fridge) |
+| Deployed MVP v1 | [fitfood-2ol0.onrender.com](http://10.93.26.202:8000/) |
 | Root README (access & run instructions) | [`README.md`](../../README.md) |
 | Video demonstration (<2 min) | [Video](https://drive.google.com/file/d/1skfvNK2yCVh-acfnuSRsyUPqqVO-nYiM/view?usp=sharing) |
 | Product Backlog board | [GitHub Projects](https://github.com/users/coldtime108/projects/1/views/1) |
