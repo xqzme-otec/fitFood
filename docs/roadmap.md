@@ -12,15 +12,18 @@
 * [US-08: Inventory Search](https://github.com/xqzme-otec/fitFood/issues/28)
 * [US-10: User Registration and Authentication](https://github.com/xqzme-otec/fitFood/issues/30)
 
-## Sprint 2
+## [Sprint 2](https://github.com/xqzme-otec/fitFood/milestone/2)
 **Dates:** 22 June 2026 - 28 June 2026
-**Sprint Goal:** Introduce active expiration tracking and expand the recipe database filtering.
-**Focus:** Developing MVP v2 to help users actively reduce food waste with smart alerts.
+**Sprint Goal:** Deliver a more intuitive and robust user experience by launching a completely redesigned frontend, implementing smart semantic product recognition, and adding recipe generation. Simultaneously, establish a strong foundation of quality by automating testing and CI pipelines to ensure long-term product stability.
+**Focus:** Improving product reliability, responding to customer feedback (UI redesign & smart search), defining measurable quality requirements, and establishing automated quality gates in CI.
 **Planned Items:**
-* US-02: Smart Recipe Recommendations
-* US-05: Daily Goal Notification
-* US-07: Recognition of similar words
-* US-09: Recipe Sorting Options
+- [US-02: Smart Recipe Recommendations](https://github.com/xqzme-otec/fitFood/issues/22)
+- [US-07: Recognition of similar words (Semantic Search)](https://github.com/xqzme-otec/fitFood/issues/27)
+- [FRONT: Create new frontend at all](https://github.com/xqzme-otec/fitFood/issues/33)
+- [INFRA: Setup GitHub Actions CI Pipeline and Branch Protection](https://github.com/xqzme-otec/fitFood/issues/59)
+- [TEST: Implement Unit and Integration Tests for Critical Modules](https://github.com/xqzme-otec/fitFood/issues/60)
+- [QA: Implement Automated Quality Requirement Tests (QRT)](https://github.com/xqzme-otec/fitFood/issues/61)
+- [INFRA: Configure Additional QA Check](https://github.com/xqzme-otec/fitFood/issues/59)
 
 ## Sprint 3
 **Dates:** 29 June 2026 - 05 July 2026
