@@ -1,0 +1,20 @@
+# Coverage configuration for FitFood.
+# Test discovery/markers live in pytest.ini; this file configures coverage.py
+# (used via pytest-cov). See docs/testing.md.
+
+[tool.coverage.run]
+source = ["app"]
+branch = false
+omit = [
+    "*/__init__.py",
+    "app/main.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

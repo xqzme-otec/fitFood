@@ -1,6 +1,16 @@
-# Зависимости только для тестов (не нужны в проде).
+# Зависимости для тестов и QA-проверок (не нужны в проде).
 #   pip install -r requirements.txt -r requirements-dev.txt
-#   pytest
+#   pytest                      # тесты + QRT
+#   pytest --cov=app            # покрытие
+#   bandit -r app -ll           # статический анализ безопасности
+#   pip-audit -r requirements.txt   # аудит зависимостей на CVE
 -r requirements.txt
 pytest==8.3.4
 httpx==0.28.1
+
+# --- Покрытие тестами ---
+pytest-cov==7.1.0
+
+# --- Дополнительные QA-проверки (Assignment 4) ---
+bandit==1.9.4
+pip-audit==2.10.1
