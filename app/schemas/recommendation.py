@@ -24,3 +24,17 @@ class RecommendationOut(BaseModel):
     suggested_grams: float
     missing_ingredients: list[str]
     ingredients: list[IngredientAvailability]
+
+
+class DayRemaining(BaseModel):
+    calories: float
+    protein: float
+    fat: float
+    carbs: float
+
+
+class RationNextOut(RecommendationOut):
+    """Следующий кандидат для свайпа рациона."""
+    source: str = "catalog"  # "catalog" (из каталога) | "llm" (придумано моделью)
+    meal_slot_id: int
+    day_remaining: DayRemaining

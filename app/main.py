@@ -15,6 +15,7 @@ from app.routers import (
     meals,
     products,
     profile,
+    rations,
     receipts,
     recipes,
     recommendations,
@@ -52,6 +53,7 @@ app.include_router(fridge.router)
 app.include_router(receipts.router)
 app.include_router(recipes.router)
 app.include_router(recommendations.router)
+app.include_router(rations.router)
 
 
 @app.get("/health", tags=["health"])

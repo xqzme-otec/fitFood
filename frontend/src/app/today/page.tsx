@@ -23,6 +23,8 @@ import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartm
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import DesignShell from "@/components/DesignShell";
 import AddFoodDialog from "@/components/AddFoodDialog";
+import RationSwiper from "@/components/RationSwiper";
+import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
 import { CalorieRing } from "@/components/Stats";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
@@ -114,6 +116,7 @@ function Dashboard() {
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [ideas, setIdeas] = useState<Recommendation[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [rationOpen, setRationOpen] = useState(false);
   const [fixedSlot, setFixedSlot] = useState<number | undefined>(undefined);
   const [preset, setPreset] = useState<Product | null>(null);
   const [searchOptions, setSearchOptions] = useState<Product[]>([]);
@@ -253,6 +256,26 @@ function Dashboard() {
         </Grid>
       </Grid>
 
+      {/* CTA: сгенерировать рацион (тиндер блюд) */}
+      <Button
+        onClick={() => setRationOpen(true)}
+        variant="contained"
+        size="large"
+        fullWidth
+        startIcon={<RestaurantMenuRoundedIcon />}
+        sx={{
+          py: 1.6,
+          borderRadius: 99,
+          fontWeight: 800,
+          fontSize: 16,
+          background: "linear-gradient(135deg, #2E7D32, #66BB6A)",
+          boxShadow: 3,
+          "&:hover": { background: "linear-gradient(135deg, #2E7D32, #43A047)" },
+        }}
+      >
+        Сгенерировать рацион
+      </Button>
+
       {/* Приёмы пищи */}
       <Box>
         <Typography variant="h3" sx={{ fontWeight: 800, mb: 2 }}>
@@ -346,6 +369,13 @@ function Dashboard() {
         today={todayStr()}
         fixedSlotId={fixedSlot}
         presetProduct={preset}
+      />
+
+      <RationSwiper
+        open={rationOpen}
+        onClose={() => setRationOpen(false)}
+        today={todayStr()}
+        onFinished={load}
       />
     </Stack>
   );

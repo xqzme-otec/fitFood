@@ -15,6 +15,7 @@ import type {
   Product,
   Profile,
   ProfileCreate,
+  RationNext,
   Receipt,
   ReceiptItemConfirm,
   Recommendation,
@@ -193,6 +194,13 @@ export const api = {
     request<Recommendation[]>(
       "/recommendations" + (mealSlotId ? "?meal_slot_id=" + mealSlotId : ""),
     ),
+
+  // --- Ration swiper (GET /rations/next) ---
+  rationNext: (mealSlotId: number, day: string, excludeIds: number[] = []) => {
+    const qs = new URLSearchParams({ meal_slot_id: String(mealSlotId), day });
+    if (excludeIds.length) qs.set("exclude", excludeIds.join(","));
+    return request<RationNext | null>("/rations/next?" + qs.toString());
+  },
 
   // --- Recipe catalog (food.ru) — под /api/recipes, чтобы не конфликтовать
   //     со страницей /recipes (см. next.config.mjs) ---
