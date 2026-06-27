@@ -248,6 +248,13 @@ export interface Recommendation {
   ingredients: IngredientAvailability[];
 }
 
+// Следующая карточка свайпа рациона (GET /rations/next).
+export interface RationNext extends Recommendation {
+  source: "catalog" | "llm";
+  meal_slot_id: number;
+  day_remaining: MacroSummary;
+}
+
 // --- Каталог рецептов (food.ru, см. app/routers/recipes.py) ---
 export interface RecipeMenu {
   key: string;
