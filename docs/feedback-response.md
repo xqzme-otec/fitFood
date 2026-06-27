@@ -1,0 +1,12 @@
+### Customer Feedback Response
+
+| Feedback point | Resulting PBI or issue | Status | Response |
+|---|---|---|---|
+| The customer noted the initial pink UI was a placeholder and requested a redesign. | [#33](https://github.com/xqzme-otec/fitFood/issues/33) | Done | Replaced placeholder design with a completely new frontend implementation to improve overall usability and aesthetics. |
+| The customer pointed out that bread was misclassified as grains and suggested adding a bakery category. | [#19](https://github.com/xqzme-otec/fitFood/issues/19) | Done | Refactored product category mapping to ensure correct classification of bakery items. |
+| The customer suggested upgrading the priority of recognizing synonyms (semantic search) to "Should Have". | [#27](https://github.com/xqzme-otec/fitFood/issues/27) | Done | Implemented recognition of similar words and synonyms to improve search reliability. |
+| The customer requested the recipe generation engine to match items currently available in the fridge. | [#22](https://github.com/xqzme-otec/fitFood/issues/22) | Done | Integrated smart recipe recommendation engine based on current inventory. |
+| The customer suggested daily notifications could recommend specific products to buy before stores close. | [#25](https://github.com/xqzme-otec/fitFood/issues/25) | Not planned for this Sprint | Deferred to a future iteration. The current focus remains on implementing the basic notification logic. |
+| The customer suggested integrating external APIs via barcode lookup to accurately fetch expiration dates. | [#64](https://github.com/xqzme-otec/fitFood/issues/64) | Not planned for this Sprint | Deferred to a future sprint. Prioritizing core logic, QA testing, and CI pipelines for the Assignment 4 deadline. |
+| The customer noted receipt scanning by photo (OCR) is pending and suggested integrating it. | [#65](https://github.com/xqzme-otec/fitFood/issues/65) | Not planned for this Sprint | Postponed to Sprint 3. Prioritized manual input stability and automated quality gates over complex new features. |
+| The customer suggested adding a scrollable visual feed of previously generated recipes on the main screen, including an interactive Tinder-style swipe interface to easily like or discard recipe suggestions. | [#66](https://github.com/xqzme-otec/fitFood/issues/66) | Not planned for this Sprint | Acknowledged as a valuable UX improvement idea. Added to the product backlog for potential future design iterations. |
