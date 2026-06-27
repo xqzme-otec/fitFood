@@ -5,6 +5,13 @@
 **Language:** Russian (original); transcript cleaned for readability.
 
 > PII removed. Real names replaced with GitHub/GitLab pseudonyms or roles. Post-meeting technical chat (after [19:26]) included for completeness but marked as off-topic.
+>
+> **Note on user-story numbering:** the US-01…US-10 labels spoken below follow the order
+> stories were *discussed in this call*, not the final stable IDs. The stable IDs used by
+> [`user-stories.md`](user-stories.md) and every later document differ — see the mapping
+> table in [`user-stories.md`](user-stories.md#note-on-user-story-id-numbering). For
+> example, "US-08" below (synonym recognition, the story whose priority was changed during
+> this call) is stable ID **US-07**.
 
 ---
 
