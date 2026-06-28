@@ -15,6 +15,8 @@ if _TMP_DB.exists():
     _TMP_DB.unlink()
 os.environ["DATABASE_URL"] = f"sqlite:///{_TMP_DB}"
 os.environ["LLM_PROVIDER"] = "mock"
+# Пустой токен -> check_api работает в мок-режиме (демо-чек), тесты не ходят в сеть.
+os.environ["CHECK_TOKEN"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

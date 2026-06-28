@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.models import Receipt, ReceiptItem, User
 from app.models.enums import FridgeCategory, ReceiptStatus
-from app.services import classifier, llm, ocr
+from app.services import check_api, classifier, llm, ocr
+from app.services.llm import ParsedReceiptItem
 
 # Категория-маркер «не еда»: такие позиции по умолчанию не добавляются в холодильник.
 DROPPED_CATEGORY = "Отброшено (не еда)"
@@ -32,6 +33,39 @@ def process_receipt(
         raw_text = ocr.image_to_text(image_bytes, filename)
 
     parsed = llm.parse_receipt(raw_text)
+    return _build_receipt(db, user, parsed, raw_text=raw_text)
+
+
+def process_receipt_qr(db: Session, user: User, qrraw: str) -> Receipt:
+    """Сканирование чека по QR-коду: API ФНС -> разбор позиций -> подтверждение.
+
+    1. По строке QR получаем реальный состав чека из proverkacheka.com.
+    2. llm.parse_structured_items применяет ту же бизнес-логику, что и для текста:
+       фильтр непищёвки, очистка имени, оценка срока хранения.
+    3. ML-классификатор присваивает категорию холодильника каждой еде.
+    """
+    raw_items = check_api.fetch_check_items(qrraw)
+    parsed = llm.parse_structured_items(raw_items)
+    return _build_receipt(db, user, parsed, raw_text=qrraw)
+
+
+def _build_receipt(
+    db: Session,
+    user: User,
+    parsed: list[ParsedReceiptItem],
+    *,
+    raw_text: str,
+) -> Receipt:
+    """Создаёт Receipt со списком позиций (статус pending) из разобранных данных.
+
+    Еде назначается категория холодильника (ML) и срок годности; непродукты
+    помечаются DROPPED_CATEGORY и по умолчанию не принимаются.
+    """
+    # LLM-нормализация имён одним батчем на весь чек (после детерминированной
+    # чистки в parse_*). В мок-режиме имена возвращаются без изменений.
+    normalized = llm.normalize_product_names([p.parsed_name for p in parsed])
+    for p, n in zip(parsed, normalized):
+        p.parsed_name = n
 
     receipt = Receipt(user_id=user.id, raw_text=raw_text, status=ReceiptStatus.pending)
     db.add(receipt)

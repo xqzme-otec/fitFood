@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.data.seed import run_seed
-from app.database import Base, engine
+from app.database import Base, engine, ensure_columns
 from app.routers import (
     auth,
     fridge,
@@ -24,8 +24,9 @@ from app.routers import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Создаём таблицы и наполняем стартовыми данными.
+    # Создаём таблицы, докатываем недостающие колонки и наполняем стартовыми данными.
     Base.metadata.create_all(bind=engine)
+    ensure_columns()
     run_seed()
     yield
 
