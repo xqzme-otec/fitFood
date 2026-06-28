@@ -35,11 +35,23 @@ class Settings(BaseSettings):
 
     # --- LLM / OCR ---
     # Если ключ не задан — используется детерминированная мок-реализация.
-    llm_provider: str = "mock"  # mock | openai | ollama
+    llm_provider: str = "mock"  # mock | openai | ollama | openrouter
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3"
+
+    # OpenRouter (OpenAI-совместимый API). Ключ — только из .env, в репозиторий
+    # не коммитим. Модель по умолчанию — бесплатная (можно сменить в .env).
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "meta-llama/llama-3.3-70b-instruct:free"
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+
+    # --- Проверка чека по QR (ФНС через proverkacheka.com) ---
+    # Токен держим только в .env, в репозиторий не коммитим. Если пуст —
+    # эндпоинт scan-qr работает в детерминированном мок-режиме (демо-чек).
+    check_token: str | None = None
+    check_url: str = "https://proverkacheka.com/api/v1/check/get"
 
     # --- ML-классификатор категорий продуктов ---
     ml_models_dir: Path = BASE_DIR / "notebooks" / "models"

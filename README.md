@@ -77,6 +77,27 @@ uvicorn app.main:app --reload
 python smoke_test.py
 ```
 
+## Тесты и контроль качества
+
+Тесты изолированы (временная SQLite-БД, `LLM_PROVIDER=mock`), PostgreSQL и сеть не нужны.
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+
+pytest                                    # все тесты (unit + integration + QRT)
+pytest -m qrt                             # только Quality Requirement Tests
+pytest --cov=app --cov-report=term-missing    # с покрытием
+python scripts/check_critical_coverage.py     # порог ≥30% по каждому критическому модулю
+
+bandit -r app -ll                         # доп. QA: статический анализ безопасности
+pip-audit -r requirements.txt             # доп. QA: аудит зависимостей на CVE
+```
+
+CI (GitHub Actions): `tests` (pytest + покрытие + порог по модулям), `qa`
+(Bandit + pip-audit), `lychee` (проверка ссылок). Подробности —
+[`docs/testing.md`](docs/testing.md) и
+[`docs/quality-requirement-tests.md`](docs/quality-requirement-tests.md).
+
 ## Фронтенд
 
 SPA без сборки (vanilla JS, ES-модули), раздаётся самим FastAPI из `frontend/`.

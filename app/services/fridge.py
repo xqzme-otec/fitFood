@@ -95,6 +95,10 @@ def add_or_merge_item(
         if matched is not None:
             product_id = matched.id
 
+    # Нет привязки к каталогу -> оцениваем КБЖУ на 100 г (LLM или фолбэк),
+    # чтобы у продукта всегда была пищевая ценность.
+    macros = None if product_id is not None else llm.estimate_macros(norm_name, category)
+
     # Сравнение без учёта регистра делаем в Python: SQLite-функция lower()
     # не приводит к нижнему регистру кириллицу, поэтому БД-фильтру не доверяем.
     candidates = (
@@ -112,6 +116,9 @@ def add_or_merge_item(
             expiry_date and expiry_date < existing.expiry_date
         ):
             existing.expiry_date = expiry_date
+        # Подтянуть оценку КБЖУ, если у старой записи её не было, а теперь есть.
+        if existing.product_id is None and existing.calories is None and macros:
+            _apply_macros(existing, macros)
         item = existing
     else:
         item = FridgeItem(
@@ -124,6 +131,8 @@ def add_or_merge_item(
             expiry_date=expiry_date,
             price=price,
         )
+        if macros:
+            _apply_macros(item, macros)
         db.add(item)
 
     if commit:
@@ -132,10 +141,19 @@ def add_or_merge_item(
     return item
 
 
+def _apply_macros(item: FridgeItem, macros: dict) -> None:
+    """Проставляет оценку КБЖУ (на 100 г) в собственные поля товара."""
+    item.calories = macros["calories"]
+    item.protein = macros["protein"]
+    item.fat = macros["fat"]
+    item.carbs = macros["carbs"]
+
+
 def serialize_item(item: FridgeItem) -> dict:
     status, days_left = expiry_status(item.expiry_date)
 
-    # КБЖУ на 100 г (из привязанного продукта) и пересчёт на текущее количество.
+    # КБЖУ на 100 г: приоритет — привязанный продукт каталога; иначе — собственная
+    # оценка товара (для продуктов из чека без совпадения в каталоге).
     kbju_100g = None
     kbju_total = None
     product = item.product
@@ -144,14 +162,15 @@ def serialize_item(item: FridgeItem) -> dict:
             "calories": product.calories, "protein": product.protein,
             "fat": product.fat, "carbs": product.carbs,
         }
-        if item.unit in ("g", "ml"):
-            f = item.quantity / 100.0
-            kbju_total = {
-                "calories": round(product.calories * f, 1),
-                "protein": round(product.protein * f, 1),
-                "fat": round(product.fat * f, 1),
-                "carbs": round(product.carbs * f, 1),
-            }
+    elif item.calories is not None:
+        kbju_100g = {
+            "calories": item.calories, "protein": item.protein,
+            "fat": item.fat, "carbs": item.carbs,
+        }
+
+    if kbju_100g is not None and item.unit in ("g", "ml"):
+        f = item.quantity / 100.0
+        kbju_total = {k: round(v * f, 1) for k, v in kbju_100g.items()}
 
     return {
         "id": item.id,

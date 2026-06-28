@@ -15,9 +15,14 @@ import type {
   Product,
   Profile,
   ProfileCreate,
+  RationNext,
   Receipt,
   ReceiptItemConfirm,
   Recommendation,
+  RecipeDetail,
+  RecipeList,
+  RecipeMenu,
+  RecipeQuery,
   Token,
   User,
   WeightRecord,
@@ -181,6 +186,8 @@ export const api = {
     fd.append("file", file);
     return request<Receipt>("/receipts/scan", { method: "POST", body: fd });
   },
+  scanReceiptQr: (qrraw: string) =>
+    request<Receipt>("/receipts/scan-qr", { method: "POST", body: { qrraw } }),
   confirmReceipt: (id: number, items: ReceiptItemConfirm[]) =>
     request<FridgeItem[]>(`/receipts/${id}/confirm`, { method: "POST", body: { items } }),
 
@@ -189,4 +196,23 @@ export const api = {
     request<Recommendation[]>(
       "/recommendations" + (mealSlotId ? "?meal_slot_id=" + mealSlotId : ""),
     ),
+
+  // --- Ration swiper (GET /rations/next) ---
+  rationNext: (mealSlotId: number, day: string, excludeIds: number[] = []) => {
+    const qs = new URLSearchParams({ meal_slot_id: String(mealSlotId), day });
+    if (excludeIds.length) qs.set("exclude", excludeIds.join(","));
+    return request<RationNext | null>("/rations/next?" + qs.toString());
+  },
+
+  // --- Recipe catalog (food.ru) — под /api/recipes, чтобы не конфликтовать
+  //     со страницей /recipes (см. next.config.mjs) ---
+  recipeMenus: () => request<RecipeMenu[]>("/api/recipes/menus"),
+  recipes: (params: RecipeQuery = {}) => {
+    const qs = Object.entries(params)
+      .filter(([, v]) => v !== "" && v != null)
+      .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    return request<RecipeList>("/api/recipes" + (qs ? "?" + qs : ""));
+  },
+  recipe: (id: number) => request<RecipeDetail>(`/api/recipes/${id}`),
 };

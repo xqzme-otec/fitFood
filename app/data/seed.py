@@ -8,10 +8,21 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import SessionLocal, engine
+from app.database import SessionLocal, engine, ensure_columns
 from app.database import Base
-from app.models import Dish, DishIngredient, Product
+from app.models import Dish, DishIngredient, Product, Recipe
+from app.services import recipes as recipe_service
 from app.services.naming import clean_display_name
+
+# Файлы каталога рецептов: имя файла -> ключ меню (категория_запроса).
+RECIPE_FILES: list[tuple[str, str]] = [
+    ("zavtrak.csv", "завтрак"),
+    ("obed.csv", "обед"),
+    ("uzhin.csv", "ужин"),
+    ("zdorovaya_eda.csv", "здоровая_еда"),
+    ("deserty.csv", "десерты"),
+    ("zakuski.csv", "закуски"),
+]
 
 # --- Базовые продукты: (ключ, имя, категория, ккал, белки, жиры, углеводы на 100 г) ---
 BASE_PRODUCTS: list[tuple[str, str, str, float, float, float, float]] = [
@@ -158,8 +169,64 @@ def seed_catalog_from_csv(db: Session, limit: int | None = None) -> int:
     return added
 
 
+def seed_recipes_from_csv(db: Session) -> int:
+    """Импортирует каталог рецептов из data/*.csv (food.ru) по меню.
+
+    Идемпотентно: пропускает, если таблица recipes уже наполнена.
+    """
+    if db.query(Recipe).count() > 0:
+        return 0
+
+    try:
+        import pandas as pd
+    except ImportError:
+        print("[seed] pandas не установлен — пропускаю импорт рецептов")
+        return 0
+
+    data_dir = settings.products_csv.parent
+    added = 0
+    for filename, default_menu in RECIPE_FILES:
+        path = data_dir / filename
+        if not path.exists():
+            print(f"[seed] Рецепты не найдены: {path}")
+            continue
+
+        df = pd.read_csv(path, encoding="utf-8-sig").fillna("")
+        for _, row in df.iterrows():
+            name = str(row.get("название", "")).strip()
+            calories = _to_float(row.get("калорийность_ккал"))
+            if not name or calories <= 0:
+                continue
+            ingredients_text = str(row.get("ингредиенты", ""))
+            menu = str(row.get("категория_запроса", "")).strip() or default_menu
+            db.add(
+                Recipe(
+                    menu=menu,
+                    name=name,
+                    photo_url=str(row.get("фото", "")).strip(),
+                    source_url=str(row.get("url", "")).strip(),
+                    calories=calories,
+                    protein=_to_float(row.get("белки_г")),
+                    fat=_to_float(row.get("жиры_г")),
+                    carbs=_to_float(row.get("углеводы_г")),
+                    ingredients_text=ingredients_text,
+                    ingredient_keys=recipe_service.ingredient_keys(ingredients_text),
+                    method_text=str(row.get("метод_приготовления", "")),
+                    category=str(row.get("категория", "")).strip(),
+                    cuisine=str(row.get("кухня", "")).strip(),
+                    cook_time_min=recipe_service.parse_minutes(row.get("время_приготовления")),
+                    prep_time_min=recipe_service.parse_minutes(row.get("время_подготовки")),
+                    servings=recipe_service.parse_servings(row.get("количество_порций")),
+                )
+            )
+            added += 1
+        db.commit()
+    return added
+
+
 def run_seed() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_columns()
     db = SessionLocal()
     try:
         # Сидим только если каталог почти пуст.
@@ -169,6 +236,11 @@ def run_seed() -> None:
             print(f"[seed] Базовые продукты/блюда созданы, импортировано из CSV: {n}")
         else:
             print("[seed] Каталог уже наполнен — пропускаю.")
+
+        # Рецепты сидим отдельно (idempotent по своей таблице).
+        r = seed_recipes_from_csv(db)
+        if r:
+            print(f"[seed] Импортировано рецептов: {r}")
     finally:
         db.close()
 

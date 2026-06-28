@@ -7,9 +7,10 @@ from app.database import get_db
 from app.models import Receipt, User
 from app.models.enums import ReceiptStatus
 from app.schemas.fridge import FridgeItemOut
-from app.schemas.receipt import ReceiptConfirm, ReceiptOut, ReceiptTextIn
+from app.schemas.receipt import ReceiptConfirm, ReceiptOut, ReceiptQrIn, ReceiptTextIn
 from app.services import fridge as fridge_service
 from app.services import receipt as receipt_service
+from app.services.check_api import CheckApiError
 
 router = APIRouter(prefix="/receipts", tags=["receipts"])
 
@@ -36,6 +37,20 @@ def scan_receipt_text(
 ):
     """Альтернатива фото: вставка текста чека вручную."""
     receipt = receipt_service.process_receipt(db, user, raw_text=payload.text)
+    return receipt
+
+
+@router.post("/scan-qr", response_model=ReceiptOut, status_code=201)
+def scan_receipt_qr(
+    payload: ReceiptQrIn,
+    user: User = Depends(require_profile),
+    db: Session = Depends(get_db),
+):
+    """Скан QR-кода чека -> API ФНС -> реальный состав -> позиции на подтверждение."""
+    try:
+        receipt = receipt_service.process_receipt_qr(db, user, payload.qrraw)
+    except CheckApiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
     return receipt
 
 

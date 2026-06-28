@@ -21,6 +21,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
 import KitchenRoundedIcon from "@mui/icons-material/KitchenRounded";
 import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
+import MenuBookRoundedIcon from "@mui/icons-material/MenuBookRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import EnergySavingsLeafRoundedIcon from "@mui/icons-material/EnergySavingsLeafRounded";
@@ -44,7 +45,8 @@ const GOAL_LABEL: Record<string, string> = {
 const NAV: { href: string; label: string; icon: React.ReactNode }[] = [
   { href: "/today", label: "Главная", icon: <DashboardRoundedIcon /> },
   { href: "/fridge", label: "Холодильник", icon: <KitchenRoundedIcon /> },
-  { href: "/recipes", label: "Рецепты", icon: <RestaurantMenuRoundedIcon /> },
+  { href: "/catalog", label: "Рецепты", icon: <RestaurantMenuRoundedIcon /> },
+  { href: "/recipes", label: "Мои блюда", icon: <MenuBookRoundedIcon /> },
   { href: "/receipt", label: "Сканер чека", icon: <ReceiptLongRoundedIcon /> },
 ];
 

@@ -8,22 +8,25 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.data.seed import run_seed
-from app.database import Base, engine
+from app.database import Base, engine, ensure_columns
 from app.routers import (
     auth,
     fridge,
     meals,
     products,
     profile,
+    rations,
     receipts,
+    recipes,
     recommendations,
 )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Создаём таблицы и наполняем стартовыми данными.
+    # Создаём таблицы, докатываем недостающие колонки и наполняем стартовыми данными.
     Base.metadata.create_all(bind=engine)
+    ensure_columns()
     run_seed()
     yield
 
@@ -49,7 +52,9 @@ app.include_router(products.router)
 app.include_router(meals.router)
 app.include_router(fridge.router)
 app.include_router(receipts.router)
+app.include_router(recipes.router)
 app.include_router(recommendations.router)
+app.include_router(rations.router)
 
 
 @app.get("/health", tags=["health"])

@@ -2,6 +2,8 @@
 
 This document defines the shared minimum completion standard for all product work in the FitFood repository. A PBI may be marked `Done` only when **all** applicable criteria below are satisfied, in addition to the issue-specific acceptance criteria.
 
+**Updated for Assignment 4** with explicit quality-requirement-test, coverage, and testing-evidence criteria (see "Quality and testing requirements" below). These gates are maintained project assets: later Sprints must keep them passing or extend them, not bypass or disable them, per [`Assignment_04.md`](../Assignment_04.md#part-6-update-the-definition-of-done).
+
 ---
 
 ## Applicable to all PBIs (User Stories, Other PBIs, Bug Reports)
@@ -20,7 +22,19 @@ This document defines the shared minimum completion standard for all product wor
 
 - [ ] The issue-linked MR is merged into the protected default branch (`main`) using a merge commit (not squash, not rebase)
 - [ ] The source branch is deleted after merge
-- [ ] All CI checks pass on the merge commit (when CI is configured)
+- [ ] All CI checks required for the product stack pass on the latest commit of the MR and on the resulting merge commit: the [`tests`](../.github/workflows/tests.yml) workflow (pytest — unit, integration, and QRT-marked tests, with coverage) and the [`qa`](../.github/workflows/qa.yml) workflow (Bandit + pip-audit)
+
+---
+
+## Quality and testing requirements (Assignment 4)
+
+These criteria apply to implementation and supporting PBIs. They are maintained gates: if the product stack, quality requirements, critical-module list, or CI configuration change in a later Sprint, update this section instead of letting it go stale.
+
+- [ ] Relevant automated unit and/or integration tests are added or updated for the change and pass in the `tests` CI workflow. Test locations and what they cover are tracked in [`docs/testing.md`](testing.md).
+- [ ] If the change touches an area covered by a Quality Requirement Test in [`docs/quality-requirement-tests.md`](quality-requirement-tests.md) (QRT-1 nutrition correctness, QRT-2 API latency, QRT-3 recommendation determinism — pytest marker `qrt`), the corresponding QRT(s) pass in CI.
+- [ ] If the change touches a critical module, automated line coverage for that module stays at or above 30% (enforced by [`scripts/check_critical_coverage.py`](../scripts/check_critical_coverage.py) in the `tests` workflow), or a TA-approved exception is documented. The current critical modules and their measured coverage are tracked in [`docs/testing.md`](testing.md#critical-modules--coverage).
+- [ ] The additional QA check (Bandit static security analysis + pip-audit dependency audit, `qa` workflow) passes for the change.
+- [ ] Testing evidence (test output, the `coverage-xml` CI artifact, or a CI run link) is referenced in the MR description or in linked documentation, not only asserted.
 
 ---
 

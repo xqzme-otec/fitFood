@@ -10,13 +10,16 @@ psycopg2-binary==2.9.10
 
 # --- Валидация / конфиг ---
 pydantic==2.13.4
-pydantic-settings==2.14.1
+pydantic-settings==2.14.2
 email-validator==2.3.0
 python-dotenv==1.2.2
 
 # --- Безопасность / JWT ---
 bcrypt==5.0.0
 python-jose==3.5.0
+
+# --- HTTP-клиент (вызовы LLM через OpenRouter) ---
+httpx==0.28.1
 
 # --- ML-классификатор категорий (xgb_model.pkl) ---
 joblib==1.5.3

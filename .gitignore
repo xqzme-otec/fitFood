@@ -6,11 +6,18 @@
 node_modules/
 vendor/
 __pycache__/
+.venv/
+venv/
 
 # Build
 dist/
 build/
 *.log
+
+# Test / coverage artifacts
+.coverage
+coverage.xml
+.pytest_cache/
 
 # IDE
 .vscode/
@@ -19,3 +26,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Assignments
+Assignment_*.md
