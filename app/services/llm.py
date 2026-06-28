@@ -12,8 +12,11 @@ LLM решает две задачи:
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+
+import httpx
 
 from app.config import settings
 
@@ -162,6 +165,289 @@ def parse_receipt(ocr_text: str) -> list[ParsedReceiptItem]:
             )
         )
     return items
+
+
+# --- Генерация рациона (объяснения + креативные блюда) ---
+
+_DOMINANT_RU = {
+    "protein": "белок",
+    "fat": "жиры",
+    "carbs": "углеводы",
+    "calories": "калорийность",
+}
+
+
+def _openrouter_chat(messages: list[dict], *, max_tokens: int = 200,
+                     temperature: float = 0.7) -> str | None:
+    """Один запрос к OpenRouter (OpenAI-совместимый chat/completions).
+
+    Возвращает текст ответа или None при любой ошибке/отсутствии ключа —
+    вызывающий код обязан иметь детерминированный фолбэк.
+    """
+    if settings.llm_provider != "openrouter" or not settings.openrouter_api_key:
+        return None
+    try:
+        resp = httpx.post(
+            f"{settings.openrouter_base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "HTTP-Referer": "https://github.com/xqzme-otec/fitFood",
+                "X-Title": "FitFood",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": settings.openrouter_model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            },
+            timeout=20.0,
+        )
+        resp.raise_for_status()
+        content = resp.json()["choices"][0]["message"]["content"]
+        return content.strip() if content else None
+    except Exception as exc:  # noqa: BLE001 — LLM опционален, не роняем запрос
+        print(f"[llm] OpenRouter недоступен, фолбэк: {exc}")
+        return None
+
+
+def _safe_json(text: str) -> dict | None:
+    """Достаёт первый JSON-объект из ответа модели (срезает ```-обёртки)."""
+    try:
+        m = re.search(r"\{.*\}", text, re.DOTALL)
+        return json.loads(m.group(0)) if m else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def explain_ration(dish_name: str, dominant_need: str, missing: list[str],
+                   remaining) -> str:
+    """Короткое дружелюбное объяснение, почему блюдо подходит. LLM или фолбэк.
+
+    `remaining` — объект с полями calories/protein/fat/carbs (остаток на день).
+    """
+    need_ru = _DOMINANT_RU.get(dominant_need, "баланс КБЖУ")
+    text = _openrouter_chat(
+        [
+            {"role": "system",
+             "content": "Ты — помощник по питанию FitFood. Отвечай кратко, по-русски, без markdown."},
+            {"role": "user", "content": (
+                f"На следующий приём пищи пользователю важно добрать: {need_ru}. "
+                f"Остаток на день: {remaining.calories:.0f} ккал, белок {remaining.protein:.0f} г, "
+                f"жиры {remaining.fat:.0f} г, углеводы {remaining.carbs:.0f} г. "
+                f"Предлагается блюдо «{dish_name}». "
+                + (f"Не хватает ингредиентов: {', '.join(missing[:3])}. " if missing else "")
+                + "Объясни в 1-2 коротких дружелюбных предложениях, почему это блюдо подходит."
+            )},
+        ],
+        max_tokens=120,
+    )
+    if text:
+        return text
+    base = f"«{dish_name}» помогает добрать {need_ru} в оставшемся дневном лимите."
+    if missing:
+        base += f" Не хватает: {', '.join(missing[:3])}."
+    return base
+
+
+# Роли продуктов для сборки осмысленного блюда. Распознаём по словам в названии
+# (приоритетно) и по категории холодильника. Для каждой роли — базовая порция (г)
+# и оценка КБЖУ на 100 г (используется, только если у продукта нет ссылки на каталог).
+_ROLE_WORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("protein", ("куриц", "куриное", "филе", "грудка", "говядин", "свинин", "индейк",
+                 "фарш", "телятин", "рыба", "лосось", "сёмга", "семга", "треск",
+                 "минтай", "форель", "тунец", "креветк", "яйцо", "яйца", "ветчин", "бекон")),
+    ("dairy", ("творог", "сыр", "йогурт", "кефир", "молоко", "сметана", "ряженк",
+               "моцарелла", "брынза")),
+    ("carb", ("гречк", "рис", "макарон", "паста", "спагетти", "овсян", "булгур",
+              "киноа", "кускус", "картоф", "хлеб", "лаваш", "тортиль", "лапша",
+              "перлов", "пшено", "чечевиц", "нут", "крупа")),
+    ("fruit", ("яблок", "банан", "груш", "апельсин", "мандарин", "ягод", "черник",
+               "клубник", "малин", "киви", "виноград", "персик", "абрикос", "манго")),
+    ("veg", ("помидор", "томат", "огурец", "перец", "лук", "морков", "капуст",
+             "брокколи", "кабачок", "баклажан", "шпинат", "салат", "зелень",
+             "чеснок", "свекл", "цуккини", "тыкв", "гриб", "авокадо")),
+]
+_ROLE_BY_CATEGORY = {
+    "Мясо и рыба": "protein",
+    "Молочка": "dairy",
+    "Бакалея": "carb",
+    "Хлеб и выпечка": "carb",
+}
+_ROLE_DEFAULTS: dict[str, dict] = {
+    "protein": {"grams": 150.0, "per100": (165.0, 25.0, 6.0, 1.0)},
+    "dairy": {"grams": 150.0, "per100": (120.0, 11.0, 5.0, 6.0)},
+    "carb": {"grams": 150.0, "per100": (130.0, 3.0, 1.0, 27.0)},
+    "veg": {"grams": 120.0, "per100": (35.0, 2.0, 0.3, 6.0)},
+    "fruit": {"grams": 120.0, "per100": (55.0, 0.6, 0.2, 13.0)},
+    "other": {"grams": 120.0, "per100": (120.0, 4.0, 4.0, 15.0)},
+}
+
+
+def _role_of(item) -> str:
+    """Роль продукта холодильника: protein/dairy/carb/veg/fruit/other."""
+    low = (getattr(item, "name", "") or "").lower()
+    for role, words in _ROLE_WORDS:
+        if any(w in low for w in words):
+            return role
+    cat = getattr(item, "category", "") or ""
+    if cat == "Овощи и фрукты":  # уточняем по названию, иначе считаем овощем
+        return "veg"
+    return _ROLE_BY_CATEGORY.get(cat, "other")
+
+
+def _per100(item, role: str) -> tuple[float, float, float, float]:
+    """КБЖУ на 100 г: из связанного продукта каталога или оценка по роли."""
+    p = getattr(item, "product", None)
+    if p is not None:
+        return (p.calories, p.protein, p.fat, p.carbs)
+    return _ROLE_DEFAULTS[role]["per100"]
+
+
+def _instrumental(name: str) -> str:
+    """Грубое склонение одного слова в творительный падеж («гречка» → «гречкой»).
+
+    Для составных названий возвращает их в нижнем регистре без склонения —
+    меню-стиль остаётся читаемым («с куриное филе» не идеально, но допустимо).
+    """
+    if len(name.split()) != 1:
+        return name.lower()
+    w = name.lower()
+    if w.endswith("а"):
+        return w[:-1] + "ой"
+    if w.endswith("я"):
+        return w[:-1] + "ей"
+    if w.endswith("ь"):
+        return w[:-1] + "ью"
+    if w.endswith(("о", "е")):
+        return w + "м"
+    if w and w[-1] in "бвгдзйклмнпрстфхцчшщ":
+        return w + "ом"
+    return w
+
+
+def _compose_dish(remaining, items: list) -> dict | None:
+    """Детерминированно собирает осмысленное блюдо из холодильника + считает КБЖУ.
+
+    Берёт по одному продукту на роль (белок + гарнир + овощ, либо молочка + фрукт),
+    подгоняет суммарную порцию под остаток калорий на день и суммирует реальные
+    КБЖУ продуктов. Возвращает None, если продуктов нет.
+    """
+    if not items:
+        return None
+
+    by_role: dict[str, object] = {}
+    for it in items:
+        by_role.setdefault(_role_of(it), it)
+
+    # Подбираем связную тарелку: главный продукт + уместные гарниры.
+    chosen: list = []
+    if "protein" in by_role:
+        chosen = [by_role["protein"]]
+        if "carb" in by_role:
+            chosen.append(by_role["carb"])
+        if "veg" in by_role:
+            chosen.append(by_role["veg"])
+    elif "dairy" in by_role:
+        chosen = [by_role["dairy"]]
+        if "fruit" in by_role:
+            chosen.append(by_role["fruit"])
+        elif "veg" in by_role:
+            chosen.append(by_role["veg"])
+    elif "carb" in by_role:
+        chosen = [by_role["carb"]]
+        if "veg" in by_role:
+            chosen.append(by_role["veg"])
+    else:
+        chosen = [next(iter(by_role.values()))]
+
+    roles = [_role_of(c) for c in chosen]
+    base_grams = [_ROLE_DEFAULTS[r]["grams"] for r in roles]
+    per100s = [_per100(c, r) for c, r in zip(chosen, roles)]
+
+    # Подгоняем порцию под остаток калорий на день (в разумных пределах).
+    base_cal = sum(p[0] * g / 100.0 for p, g in zip(per100s, base_grams)) or 1.0
+    if remaining.calories and remaining.calories > 0:
+        factor = max(0.5, min(remaining.calories / base_cal, 1.6))
+    else:
+        factor = 1.0
+    grams = [round(g * factor / 10.0) * 10.0 for g in base_grams]
+
+    cal = sum(p[0] * g / 100.0 for p, g in zip(per100s, grams))
+    pro = sum(p[1] * g / 100.0 for p, g in zip(per100s, grams))
+    fat = sum(p[2] * g / 100.0 for p, g in zip(per100s, grams))
+    carb = sum(p[3] * g / 100.0 for p, g in zip(per100s, grams))
+
+    main, sides = chosen[0], chosen[1:]
+    if sides:
+        name = f"{main.name} с " + " и ".join(_instrumental(s.name) for s in sides)
+    else:
+        name = main.name
+
+    need = _dominant_need_local(remaining)
+    if remaining.calories and remaining.calories > 0:
+        reason = (
+            f"Собрано из вашего холодильника под остаток дня (~{remaining.calories:.0f} ккал): "
+            f"{round(pro)} г белка помогут добрать {_DOMINANT_RU.get(need, 'баланс КБЖУ')}."
+        )
+    else:
+        reason = (
+            "Лёгкий вариант из холодильника — дневной лимит почти исчерпан, "
+            "поэтому порция небольшая."
+        )
+
+    return {
+        "name": name[0].upper() + name[1:] if name else name,
+        "reason": reason,
+        "calories": round(cal, 1), "protein": round(pro, 1),
+        "fat": round(fat, 1), "carbs": round(carb, 1),
+        "grams": round(sum(grams), 1),
+    }
+
+
+def _dominant_need_local(remaining) -> str:
+    """Какого макронутриента сейчас не хватает больше всего (по граммам остатка)."""
+    needs = {"protein": remaining.protein, "fat": remaining.fat, "carbs": remaining.carbs}
+    positive = {k: v for k, v in needs.items() if v and v > 0}
+    return max(positive, key=positive.get) if positive else "calories"
+
+
+def invent_dish(remaining, items: list) -> dict | None:
+    """Креативное блюдо из продуктов холодильника, когда каталог исчерпан.
+
+    `items` — объекты FridgeItem (с .name/.category/.product). Всегда возвращает
+    блюдо с реальными КБЖУ (детерминированная сборка), либо None если холодильник
+    пуст. Если доступна LLM — берём её более «вкусные» название/описание, но КБЖУ
+    оставляем расчётными (LLM в КБЖУ ненадёжна).
+    """
+    det = _compose_dish(remaining, items)
+    if det is None:
+        return None
+
+    fridge_names = [getattr(i, "name", "") for i in items if getattr(i, "name", "")]
+    text = _openrouter_chat(
+        [
+            {"role": "system", "content": (
+                "Ты — шеф-повар FitFood. Придумываешь простые, аппетитные и реалистичные "
+                "домашние блюда строго из заданных продуктов. Возвращай только JSON без markdown."
+            )},
+            {"role": "user", "content": (
+                f"Продукты в холодильнике: {', '.join(fridge_names[:20])}. "
+                f"Остаток на день: {remaining.calories:.0f} ккал, белок {remaining.protein:.0f} г, "
+                f"жиры {remaining.fat:.0f} г, углеводы {remaining.carbs:.0f} г. "
+                "Предложи одно аппетитное блюдо, которое реально приготовить из этих продуктов. "
+                'Верни строго JSON: {"name": str (короткое название блюда), '
+                '"reason": str (1-2 дружелюбных предложения, почему подходит)}'
+            )},
+        ],
+        max_tokens=200,
+    )
+    parsed = _safe_json(text) if text else None
+    if parsed and parsed.get("name"):
+        det["name"] = str(parsed["name"]).strip()
+        if parsed.get("reason"):
+            det["reason"] = str(parsed["reason"]).strip()
+    return det
 
 
 # --- Заглушки реальных провайдеров (реализуйте при наличии ключей) ---

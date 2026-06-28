@@ -28,7 +28,7 @@ import DesignShell from "@/components/DesignShell";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { useToast } from "@/lib/toast";
-import { num } from "@/lib/format";
+import { FRIDGE_CATEGORIES, num } from "@/lib/format";
 import type { FridgeItem, MealSlot, Product } from "@/lib/types";
 
 const ALL = "Все";
@@ -145,12 +145,13 @@ function EditItemDialog({
   item: FridgeItem | null;
   meals: MealSlot[];
   onClose: () => void;
-  onSave: (quantity: number, expiry: string | null) => void;
+  onSave: (quantity: number, expiry: string | null, category: string) => void;
   onDelete: () => void;
   onAddToDiet: (slotId: number, amount: number) => void;
 }) {
   const [qty, setQty] = useState("");
   const [date, setDate] = useState("");
+  const [category, setCategory] = useState("");
   const [dietSlot, setDietSlot] = useState<number | null>(null);
   const [dietQty, setDietQty] = useState("");
 
@@ -159,13 +160,19 @@ function EditItemDialog({
     lastId.current = item.id;
     setQty(String(item.quantity));
     setDate(item.expiry_date ?? "");
+    setCategory(item.category);
     setDietSlot(null);
     setDietQty(String(item.quantity));
   }
   if (!item) lastId.current = null;
 
   const open = Boolean(item);
-  const handleSave = () => onSave(Math.max(0, Number(qty) || 0), date || null);
+  const handleSave = () => onSave(Math.max(0, Number(qty) || 0), date || null, category);
+  // На случай, если у позиции категория вне канонного списка — добавим её в опции.
+  const categoryOptions =
+    item && !FRIDGE_CATEGORIES.includes(item.category)
+      ? [item.category, ...FRIDGE_CATEGORIES]
+      : FRIDGE_CATEGORIES;
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
@@ -193,6 +200,21 @@ function EditItemDialog({
                 InputProps={{ endAdornment: <InputAdornment position="end">{unitLabel(item.unit)}</InputAdornment> }}
               />
               <TextField label="Срок годности" type="date" value={date} onChange={(e) => setDate(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+
+              <TextField
+                label="Категория"
+                select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                fullWidth
+                helperText="Если продукт лежит не в том разделе — выберите правильный"
+              >
+                {categoryOptions.map((c) => (
+                  <MenuItem key={c} value={c}>
+                    {c}
+                  </MenuItem>
+                ))}
+              </TextField>
 
               {item.product_id != null && meals.length > 0 && (
                 <Box>
@@ -388,10 +410,10 @@ function FridgeContent() {
     }
   };
 
-  const handleSave = async (quantity: number, expiry: string | null) => {
+  const handleSave = async (quantity: number, expiry: string | null, category: string) => {
     if (!editing) return;
     try {
-      await api.fridgeUpdate(editing.id, { quantity, expiry_date: expiry });
+      await api.fridgeUpdate(editing.id, { quantity, expiry_date: expiry, category });
       setEditing(null);
       toast("Изменения сохранены");
       load();

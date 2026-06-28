@@ -30,6 +30,7 @@ class FridgeCategory(str, enum.Enum):
     meat_fish = "Мясо и рыба"
     ready_made = "Готовая еда"
     dairy = "Молочка"
+    bakery = "Хлеб и выпечка"
     grocery = "Бакалея"
     sweets = "Сладости"
     snacks = "Снеки"

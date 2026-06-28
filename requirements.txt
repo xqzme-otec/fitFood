@@ -18,6 +18,9 @@ python-dotenv==1.2.2
 bcrypt==5.0.0
 python-jose==3.5.0
 
+# --- HTTP-клиент (вызовы LLM через OpenRouter) ---
+httpx==0.28.1
+
 # --- ML-классификатор категорий (xgb_model.pkl) ---
 joblib==1.5.3
 numpy==2.4.6

@@ -19,16 +19,22 @@ Before the meeting started, the team obtained the following permissions from the
 | Sharing sanitised transcript privately with instructors | ✅ Granted |
 | Publishing sanitised transcript in the public repository | ✅ Granted |
 
+> **Note on user-story numbering:** this summary uses the **stable IDs** from
+> [`user-stories.md`](user-stories.md#note-on-user-story-id-numbering) (e.g. the synonym-recognition
+> story is **US-07**). The [transcript](customer-meeting-transcript.md) instead numbers
+> stories by the order they were discussed live; see the mapping table linked above to
+> reconcile the two.
+
 ## Artifacts Demonstrated
 
-1. **User stories** ([`reports/week2/user-stories.md`](user-stories.md)) — US-01 through US-10 with MoSCoW priorities presented and discussed.
-2. **MVP v0 local build** — live walkthrough covering US-01 (account & profile), US-02 (product add via QR scan and manual search), US-04 (macro tracking), US-07 (expiry date tracking), US-09 (inventory search).
+1. **User stories** ([`reports/week2/user-stories.md`](user-stories.md)) — US-01 through US-10 (stable IDs) with MoSCoW priorities presented and discussed.
+2. **MVP v0 local build** — live walkthrough covering US-10 (account & profile), US-01 (product add via QR scan and manual search), US-03 (macro tracking), US-06 (expiry date tracking), US-08 (inventory search).
 
 ## Discussion Points
 
 ### User Stories Review
 
-The team presented all 10 user stories with MoSCoW priorities. The customer reviewed and approved the stories.
+The team presented all 10 user stories with MoSCoW priorities. The customer reviewed and approved the stories, with one change: the synonym-recognition story (stable ID **US-07**) was raised from Could Have to Should Have, because the customer judged semantic/vector search models to make it more tractable than the team initially estimated.
 
 ### MVP v0 Demo Feedback
 
@@ -49,7 +55,8 @@ The customer requested that future calls be scheduled on **weekdays** rather tha
 | # | Decision |
 |---|---|
 | 1 | User stories US-01 through US-10 approved. |
-| 2 | Future meetings to be scheduled on weekdays. |
+| 2 | US-07 (synonym recognition) priority raised from Could Have to Should Have, at the customer's request. |
+| 3 | Future meetings to be scheduled on weekdays. |
 
 ## Customer Approvals
 
@@ -73,7 +80,11 @@ The customer requested that future calls be scheduled on **weekdays** rather tha
 
 ## Resulting Changes
 
-No changes to user stories, priorities, or prototype artifacts resulted from this meeting.
+| Change | Detail |
+|---|---|
+| US-07 priority raised | Synonym recognition (referred to as "US-08" live during the call — see [transcript](customer-meeting-transcript.md) [08:49]–[10:28]) changed from Could Have to Should Have, at the customer's request. Reflected in [`user-stories.md`](user-stories.md). |
+
+No other changes to user stories, priorities, or prototype artifacts resulted from this meeting.
 
 ## Risks Identified
 

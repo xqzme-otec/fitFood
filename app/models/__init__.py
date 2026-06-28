@@ -14,6 +14,7 @@ from app.models.fridge import (
 )
 from app.models.meal import FoodEntry
 from app.models.product import Dish, DishIngredient, Product
+from app.models.recipe import Recipe
 from app.models.user import (
     MealSlot,
     NutritionTarget,
@@ -25,6 +26,6 @@ from app.models.user import (
 __all__ = [
     "ActivityLevel", "FridgeCategory", "Goal", "ReceiptStatus", "Sex",
     "User", "Profile", "WeightRecord", "NutritionTarget", "MealSlot",
-    "Product", "Dish", "DishIngredient", "FoodEntry",
+    "Product", "Dish", "DishIngredient", "Recipe", "FoodEntry",
     "FridgeItem", "Receipt", "ReceiptItem", "RecommendationLog",
 ]

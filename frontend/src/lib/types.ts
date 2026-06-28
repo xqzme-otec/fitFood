@@ -171,6 +171,7 @@ export interface FridgeItemCreate {
 export interface FridgeItemUpdate {
   quantity?: number;
   expiry_date?: string | null;
+  category?: string | null;
 }
 
 export interface FridgeItem {
@@ -245,4 +246,69 @@ export interface Recommendation {
   suggested_grams: number;
   missing_ingredients: string[];
   ingredients: IngredientAvailability[];
+}
+
+// Следующая карточка свайпа рациона (GET /rations/next).
+export interface RationNext extends Recommendation {
+  source: "catalog" | "llm";
+  meal_slot_id: number;
+  day_remaining: MacroSummary;
+}
+
+// --- Каталог рецептов (food.ru, см. app/routers/recipes.py) ---
+export interface RecipeMenu {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface RecipeCard {
+  id: number;
+  menu: string;
+  name: string;
+  photo_url: string;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+  category: string;
+  cuisine: string;
+  cook_time_min: number | null;
+  servings: number | null;
+  match_count: number;
+  total_ingredients: number;
+}
+
+export interface RecipeIngredient {
+  text: string;
+  available: boolean;
+}
+
+export interface RecipeDetail extends RecipeCard {
+  source_url: string;
+  prep_time_min: number | null;
+  method_text: string;
+  ingredients: RecipeIngredient[];
+}
+
+export interface RecipeList {
+  total: number;
+  items: RecipeCard[];
+}
+
+export interface RecipeQuery {
+  menu?: string;
+  q?: string;
+  cal_min?: number;
+  cal_max?: number;
+  protein_min?: number;
+  protein_max?: number;
+  fat_min?: number;
+  fat_max?: number;
+  carbs_min?: number;
+  carbs_max?: number;
+  time_max?: number;
+  sort?: string;
+  limit?: number;
+  offset?: number;
 }

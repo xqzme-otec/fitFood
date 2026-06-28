@@ -76,6 +76,32 @@ def remaining_for_meal(db: Session, user: User, slot: MealSlot, day) -> Remainin
     )
 
 
+def remaining_for_day(db: Session, user: User, day) -> Remaining:
+    """Остаток дневной нормы КБЖУ = суточная цель − всё съеденное за день.
+
+    Та же логика, что и `/diary/summary` (target − sum(FoodEntry за день)).
+    Используется, чтобы подбор следующего приёма учитывал съеденное ранее
+    (например, после углеводного завтрака на обед подсветится дефицит белка).
+    """
+    from app.models import FoodEntry  # локальный импорт во избежание циклов
+
+    target = user.nutrition_target
+    if target is None:
+        return Remaining(0.0, 0.0, 0.0, 0.0)
+
+    rows = (
+        db.query(FoodEntry)
+        .filter(FoodEntry.user_id == user.id, FoodEntry.entry_date == day)
+        .all()
+    )
+    return Remaining(
+        calories=round(target.calories - sum(r.calories for r in rows), 1),
+        protein=round(target.protein_g - sum(r.protein for r in rows), 1),
+        fat=round(target.fat_g - sum(r.fat for r in rows), 1),
+        carbs=round(target.carb_g - sum(r.carbs for r in rows), 1),
+    )
+
+
 def _dominant_need(rem: Remaining) -> str:
     """Какой макронутриент сейчас наиболее дефицитен (по граммам остатка)."""
     needs = {"protein": rem.protein, "fat": rem.fat, "carbs": rem.carbs}
@@ -115,16 +141,29 @@ def _score_dish(dish: Dish, rem: Remaining, coverage: float, dominant: str) -> f
 
 
 def recommend_dishes(
-    db: Session, user: User, slot: MealSlot, day, limit: int = 5
+    db: Session,
+    user: User,
+    slot: MealSlot,
+    day,
+    limit: int = 5,
+    dominant_override: str | None = None,
+    exclude_dish_ids: set[int] | None = None,
 ) -> list[dict]:
+    """Подбор блюд под приём.
+
+    dominant_override — заменить вычисленный дефицитный макрос (например, на
+      дневной дефицит, а не только по этому приёму).
+    exclude_dish_ids — пропустить уже отвергнутые блюда (для свайпа).
+    """
     fridge_items = db.query(FridgeItem).filter(FridgeItem.user_id == user.id).all()
     fridge_tokens = _build_fridge_index(fridge_items)
     rem = remaining_for_meal(db, user, slot, day)
-    dominant = _dominant_need(rem)
+    dominant = dominant_override or _dominant_need(rem)
+    exclude_dish_ids = exclude_dish_ids or set()
 
     results: list[dict] = []
     for dish in db.query(Dish).all():
-        if not dish.ingredients:
+        if not dish.ingredients or dish.id in exclude_dish_ids:
             continue
 
         key_total = key_have = 0

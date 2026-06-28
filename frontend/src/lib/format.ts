@@ -13,6 +13,22 @@ export function unitLabel(unit: string): string {
   return unit === "ml" ? "мл" : unit === "pcs" ? "шт" : "г";
 }
 
+// Категории холодильника — единый список, совпадает с FridgeCategory
+// (app/models/enums.py). Используется и при скане чека, и в холодильнике.
+export const FRIDGE_CATEGORIES = [
+  "Мясо и рыба",
+  "Готовая еда",
+  "Молочка",
+  "Хлеб и выпечка",
+  "Бакалея",
+  "Сладости",
+  "Снеки",
+  "Овощи и фрукты",
+  "Чай, кофе, какао",
+  "Напитки",
+  "Прочее",
+];
+
 export const ACTIVITY_OPTIONS: [string, string][] = [
   ["minimal", "Минимальная (сидячий образ жизни)"],
   ["low", "Низкая"],

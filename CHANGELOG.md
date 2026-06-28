@@ -1,5 +1,4 @@
 # Changelog
-
 ## [Unreleased] - 2026-06-24
 
 ### Added
@@ -41,3 +40,21 @@
 
 - Configured GitHub Actions CI/CD workflow.
 - Added extended Pull Request and Issue templates.
+
+
+
+## [0.2.0] - 2026-06-27
+
+### Added
+- Recipe catalog with filters and a large dataset.
+- Direct meal logging feature with live nutrient preview.
+- Automated quality requirement tests and CI/CD pipeline.
+- Comprehensive unit and integration test suite.
+
+### Changed
+- Frontend fully rewritten for better maintainability.
+- Redesigned dashboard, fridge page, and navigation.
+- Updated documentation on quality requirements and testing strategy.
+
+### Fixed
+- Fridge category mapping and infrastructure configuration issues.
