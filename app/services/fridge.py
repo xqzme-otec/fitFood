@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import FridgeItem, Product, User
 from app.services import classifier, llm
+from app.services.emoji import emoji_for
 
 SOON_THRESHOLD_DAYS = 3  # «скоро истекает», если осталось <= стольких дней
 
@@ -156,6 +157,7 @@ def serialize_item(item: FridgeItem) -> dict:
         "id": item.id,
         "product_id": item.product_id,
         "name": item.name,
+        "emoji": emoji_for(item.name, item.category),
         "category": item.category,
         "quantity": item.quantity,
         "unit": item.unit,

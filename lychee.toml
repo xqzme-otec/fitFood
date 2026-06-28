@@ -1,5 +1,9 @@
 exclude = [
     '^http://localhost',
-    '^http://127.0.0.1'
+    '^http://127.0.0.1',
+    '^https://gitlab\.pg\.innopolis\.university'
 ]
+# Skip links to private/internal network addresses (e.g. the self-hosted
+# deploy at http://10.93.26.202:8000/) — they are unreachable from CI runners.
+exclude_private = true
 exclude_mail = true

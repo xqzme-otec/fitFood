@@ -4,7 +4,7 @@
 дневник питания, каталог продуктов/блюд, холодильник с распознаванием чеков
 (OCR + LLM, мок) и рекомендации рецептов.
 
-DEPLOYED PROJECT https://fitfood-2ol0.onrender.com/#/fridge (but innopolis vm has problems and we deployed it in another server)
+Deployed project http://10.93.26.202:8000/
 
 Проект запускается **без внешних ключей**: LLM и OCR работают в детерминированном
 мок-режиме, БД по умолчанию — SQLite. ML-классификатор категорий использует
@@ -76,6 +76,27 @@ uvicorn app.main:app --reload
 ```bash
 python smoke_test.py
 ```
+
+## Тесты и контроль качества
+
+Тесты изолированы (временная SQLite-БД, `LLM_PROVIDER=mock`), PostgreSQL и сеть не нужны.
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+
+pytest                                    # все тесты (unit + integration + QRT)
+pytest -m qrt                             # только Quality Requirement Tests
+pytest --cov=app --cov-report=term-missing    # с покрытием
+python scripts/check_critical_coverage.py     # порог ≥30% по каждому критическому модулю
+
+bandit -r app -ll                         # доп. QA: статический анализ безопасности
+pip-audit -r requirements.txt             # доп. QA: аудит зависимостей на CVE
+```
+
+CI (GitHub Actions): `tests` (pytest + покрытие + порог по модулям), `qa`
+(Bandit + pip-audit), `lychee` (проверка ссылок). Подробности —
+[`docs/testing.md`](docs/testing.md) и
+[`docs/quality-requirement-tests.md`](docs/quality-requirement-tests.md).
 
 ## Фронтенд
 

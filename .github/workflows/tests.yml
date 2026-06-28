@@ -19,7 +19,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
 
-      - name: Run tests
+      - name: Run tests with coverage
         # Тесты используют изолированную SQLite-БД (см. tests/conftest.py),
-        # PostgreSQL не требуется.
-        run: pytest
+        # PostgreSQL не требуется. Запускаются и обычные тесты, и QRT (маркер qrt).
+        run: pytest --cov=app --cov-report=xml --cov-report=term-missing
+
+      - name: Enforce critical-module coverage (>= 30% each)
+        run: python scripts/check_critical_coverage.py coverage.xml
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml

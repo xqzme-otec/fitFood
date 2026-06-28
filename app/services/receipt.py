@@ -9,6 +9,9 @@ from app.models import Receipt, ReceiptItem, User
 from app.models.enums import FridgeCategory, ReceiptStatus
 from app.services import classifier, llm, ocr
 
+# Категория-маркер «не еда»: такие позиции по умолчанию не добавляются в холодильник.
+DROPPED_CATEGORY = "Отброшено (не еда)"
+
 
 def process_receipt(
     db: Session,
@@ -41,7 +44,7 @@ def process_receipt(
             category = fridge_cat.value
             expiry = today + timedelta(days=p.expiry_days) if p.expiry_days else None
         else:
-            category = "Отброшено (не еда)"
+            category = DROPPED_CATEGORY
             expiry = None
 
         db.add(
@@ -93,7 +96,13 @@ def confirm_receipt(
             if c.expiry_date is not None:
                 item.expiry_date = c.expiry_date
 
-        if not item.accepted or not item.is_food:
+        # Признак «еда» теперь определяется итоговой категорией: если пользователь
+        # назначил отброшенной позиции реальную категорию — она становится едой
+        # и попадёт в холодильник (и наоборот — еду можно отбросить).
+        is_dropped = item.category == DROPPED_CATEGORY
+        item.is_food = not is_dropped
+
+        if not item.accepted or is_dropped:
             continue
 
         fridge_item = fridge_service.add_or_merge_item(

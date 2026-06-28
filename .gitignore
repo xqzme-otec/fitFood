@@ -12,6 +12,11 @@ dist/
 build/
 *.log
 
+# Test / coverage artifacts
+.coverage
+coverage.xml
+.pytest_cache/
+
 # IDE
 .vscode/
 .idea/
@@ -19,3 +24,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Assignments
+Assignment_*.md

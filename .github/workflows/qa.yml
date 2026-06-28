@@ -1,0 +1,32 @@
+name: qa
+
+# Additional QA check (Assignment 4): security static analysis + dependency
+# vulnerability audit. Distinct from linting, build, unit/integration tests,
+# coverage, the automated QRTs, and link checking. See docs/testing.md.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install QA tools
+        run: pip install bandit==1.9.4 pip-audit==2.10.1
+
+      - name: Bandit (static security analysis)
+        # -ll: fail only on medium-and-higher severity findings (actionable signal).
+        run: bandit -r app -ll
+
+      - name: pip-audit (dependency CVE audit)
+        run: pip-audit -r requirements.txt

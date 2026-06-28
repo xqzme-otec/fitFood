@@ -1,3 +1,32 @@
+## Note on user-story ID numbering
+
+The stable IDs below (US-01 … US-10) are the **final, canonical IDs** used by every later
+artifact: this document, [`README.md`](README.md)'s coverage mapping, [`mvp-v0-report.md`](mvp-v0-report.md),
+[`analysis.md`](analysis.md), and the [Week 3 GitHub Issues](https://github.com/xqzme-otec/fitFood/issues) (#21–#29) created from
+this backlog.
+
+During the live customer call ([transcript](customer-meeting-transcript.md)), stories were
+numbered in the **order they were discussed**, which differs from the final stable IDs
+assigned when this document was written immediately afterward. The mapping below lets you
+reconcile the two:
+
+| Meeting-order # (transcript) | Story content | Stable ID (this document) |
+|---|---|---|
+| US-01 | Account creation / registration | **US-10** |
+| US-02 | Add products (receipt scan / manual) | **US-01** |
+| US-03 | Smart recipe recommendations | **US-02** |
+| US-04 | Daily macronutrient tracking | **US-03** |
+| US-05 | Structured dietary plans | **US-04** |
+| US-06 | Daily goal notification | **US-05** |
+| US-07 | Expiration date tracking | **US-06** |
+| US-08 | Recognition of similar words (priority raised Could Have → Should Have during the call) | **US-07** |
+| US-09 | Inventory search | **US-08** |
+| US-10 | Recipe sorting options | **US-09** |
+
+All other documents in this repository (README, MVP v0 report, analysis, Week 3 backlog and
+Issues) use the **stable ID** column. Only the transcript and the live-discussion parts of the
+meeting summary use the meeting-order numbering.
+
 ## Initial proposed MVP v1 scope 
 * US-01 
 * US-02 

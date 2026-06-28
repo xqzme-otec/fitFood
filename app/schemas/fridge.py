@@ -23,12 +23,14 @@ class FridgeItemCreate(BaseModel):
 class FridgeItemUpdate(BaseModel):
     quantity: float | None = Field(default=None, gt=0)
     expiry_date: date | None = None
+    category: str | None = None  # ручное перемещение продукта в другую категорию
 
 
 class FridgeItemOut(BaseModel):
     id: int
     product_id: int | None
     name: str
+    emoji: str = "🍽️"
     category: str
     quantity: float
     unit: str
