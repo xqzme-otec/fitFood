@@ -19,6 +19,7 @@ from dataclasses import dataclass
 import httpx
 
 from app.config import settings
+from app.services import naming
 
 # --- Базы знаний для мок-режима ---
 
@@ -68,6 +69,12 @@ class ParsedReceiptItem:
 
 def _clean_name(name: str) -> str:
     text = re.sub(r"\s+", " ", name).strip()
+    # Убираем «висячую» пунктуацию по краям, остающуюся после вырезания меры/цены
+    # (например, «Кетчуп дой-пак (» -> «Кетчуп дой-пак»). Незакрытую скобку,
+    # если в имени осталась только открывающая, тоже отбрасываем.
+    text = text.strip(" .,;:-/×*")
+    if text.endswith("(") and ")" not in text:
+        text = text[:-1].strip(" .,;:-/×*")
     return text
 
 
@@ -165,6 +172,98 @@ def parse_receipt(ocr_text: str) -> list[ParsedReceiptItem]:
             )
         )
     return items
+
+
+def parse_structured_items(
+    raw_items: list[dict],
+) -> list[ParsedReceiptItem]:
+    """Разбор уже структурированных позиций чека (например, из API ФНС по QR).
+
+    В отличие от parse_receipt (свободный OCR-текст), здесь название, количество
+    и цена уже известны из фискальных данных. Остаётся применить ту же бизнес-
+    логику: очистить имя, отсечь непищёвку, оценить срок хранения.
+
+    Каждый элемент raw_items: {"name": str, "quantity": float|None,
+    "price": float|None}. Количество/единицу пытаемся уточнить по названию
+    (например, «Молоко 930мл» → 930 мл); если в названии нет меры — берём
+    фискальное количество как штуки.
+    """
+    items: list[ParsedReceiptItem] = []
+    for raw in raw_items:
+        raw_name = str(raw.get("name") or "").strip()
+        if not raw_name:
+            continue
+
+        # Детерминированная чистка фискального имени (артикул/упаковка/точки),
+        # затем убираем меру. LLM-нормализация имён — позже, в receipt._build_receipt.
+        base = naming.clean_receipt_name(raw_name)
+        name = _clean_name(_QTY_RE.sub("", base))
+        if not name:
+            name = base or raw_name
+
+        # Мера из названия приоритетнее фискального count (он почти всегда «шт»).
+        qty, unit = _parse_qty_unit(raw_name)
+        if unit == "pcs":
+            fiscal_qty = raw.get("quantity")
+            qty = float(fiscal_qty) if fiscal_qty else 1.0
+
+        is_food = not _is_non_food(name)
+        expiry_days = estimate_shelf_life_days(name) if is_food else None
+        price = raw.get("price")
+
+        items.append(
+            ParsedReceiptItem(
+                raw_name=raw_name,
+                parsed_name=name,
+                quantity=qty,
+                unit=unit,
+                price=float(price) if price is not None else None,
+                expiry_days=expiry_days,
+                is_food=is_food,
+            )
+        )
+    return items
+
+
+def normalize_product_names(names: list[str]) -> list[str]:
+    """Приводит названия продуктов из чека к человекочитаемому виду (батч).
+
+    Сокращённые/брендовые фискальные имена («ТЕНД. Филе кур. охл») LLM
+    превращает в понятные («Куриное филе охлаждённое»). Запрос — один на весь
+    чек. Без ключа (или при сбое) возвращает имена без изменений: деттерминированная
+    чистка уже сделана в parse_structured_items.
+    """
+    if not names:
+        return []
+    if settings.llm_provider == "openrouter" and settings.openrouter_api_key:
+        result = _openrouter_normalize_names(names)
+        if result and len(result) == len(names):
+            # Пустые ответы модели заменяем исходным именем.
+            return [(r.strip() if r and r.strip() else names[i]) for i, r in enumerate(result)]
+    return list(names)
+
+
+def _openrouter_normalize_names(names: list[str]) -> list[str] | None:
+    """Один запрос к LLM: список сырых имён -> список человекочитаемых (тот же порядок)."""
+    numbered = "\n".join(f"{i}. {n}" for i, n in enumerate(names))
+    text = _openrouter_chat(
+        [
+            {"role": "system", "content": (
+                "Ты приводишь сокращённые названия продуктов из кассового чека к "
+                "понятному виду на русском: раскрываешь сокращения, убираешь бренды и "
+                "коды, сохраняешь суть продукта. Возвращай только JSON без markdown."
+            )},
+            {"role": "user", "content": (
+                "Нормализуй каждое название. Сохрани тот же порядок и количество. "
+                'Верни строго JSON: {"names": ["...", "..."]}.\n\n' + numbered
+            )},
+        ],
+        max_tokens=600,
+    )
+    data = _safe_json(text) if text else None
+    if not data or not isinstance(data.get("names"), list):
+        return None
+    return [str(x) for x in data["names"]]
 
 
 # --- Генерация рациона (объяснения + креативные блюда) ---
@@ -284,16 +383,63 @@ _ROLE_DEFAULTS: dict[str, dict] = {
 }
 
 
-def _role_of(item) -> str:
-    """Роль продукта холодильника: protein/dairy/carb/veg/fruit/other."""
-    low = (getattr(item, "name", "") or "").lower()
+def _role_for(name: str, category: str | None = None) -> str:
+    """Роль продукта по названию/категории: protein/dairy/carb/veg/fruit/other."""
+    low = (name or "").lower()
     for role, words in _ROLE_WORDS:
         if any(w in low for w in words):
             return role
-    cat = getattr(item, "category", "") or ""
+    cat = category or ""
     if cat == "Овощи и фрукты":  # уточняем по названию, иначе считаем овощем
         return "veg"
     return _ROLE_BY_CATEGORY.get(cat, "other")
+
+
+def _role_of(item) -> str:
+    """Роль продукта холодильника: protein/dairy/carb/veg/fruit/other."""
+    return _role_for(getattr(item, "name", "") or "", getattr(item, "category", "") or "")
+
+
+def estimate_macros(name: str, category: str | None = None) -> dict:
+    """Оценка КБЖУ на 100 г для продукта без привязки к каталогу.
+
+    Возвращает {"calories", "protein", "fat", "carbs"}. При наличии ключа
+    делегирует в LLM; иначе — детерминированная оценка по «роли» продукта
+    (мясо/молочка/крупы/овощи/фрукты/прочее), как и estimate_shelf_life_days.
+    """
+    if settings.llm_provider == "openrouter" and settings.openrouter_api_key:
+        llm_macros = _openrouter_macros(name)
+        if llm_macros:
+            return llm_macros
+    cal, pro, fat, carb = _ROLE_DEFAULTS[_role_for(name, category)]["per100"]
+    return {"calories": cal, "protein": pro, "fat": fat, "carbs": carb}
+
+
+def _openrouter_macros(name: str) -> dict | None:
+    """Просит LLM оценить КБЖУ на 100 г, возвращает dict или None при сбое."""
+    text = _openrouter_chat(
+        [
+            {"role": "system", "content": (
+                "Ты — нутрициолог. Оцениваешь пищевую ценность продукта на 100 г. "
+                "Возвращай только JSON без markdown."
+            )},
+            {"role": "user", "content": (
+                f"Оцени КБЖУ продукта «{name}» на 100 г. Верни строго JSON: "
+                '{"calories": число, "protein": число, "fat": число, "carbs": число}'
+            )},
+        ],
+        max_tokens=120,
+    )
+    data = _safe_json(text) if text else None
+    if not data:
+        return None
+    try:
+        macros = {k: float(data[k]) for k in ("calories", "protein", "fat", "carbs")}
+    except (KeyError, TypeError, ValueError):
+        return None
+    if any(v < 0 for v in macros.values()) or macros["calories"] > 1000:
+        return None  # отбраковываем явный бред модели
+    return macros
 
 
 def _per100(item, role: str) -> tuple[float, float, float, float]:

@@ -8,7 +8,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import SessionLocal, engine
+from app.database import SessionLocal, engine, ensure_columns
 from app.database import Base
 from app.models import Dish, DishIngredient, Product, Recipe
 from app.services import recipes as recipe_service
@@ -226,6 +226,7 @@ def seed_recipes_from_csv(db: Session) -> int:
 
 def run_seed() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_columns()
     db = SessionLocal()
     try:
         # Сидим только если каталог почти пуст.

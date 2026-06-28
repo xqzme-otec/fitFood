@@ -1,7 +1,7 @@
 """Подключение к БД и базовый класс моделей (SQLAlchemy 2.0)."""
 from collections.abc import Generator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
@@ -34,6 +34,24 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, futu
 
 class Base(DeclarativeBase):
     """Базовый класс для всех ORM-моделей."""
+
+
+def ensure_columns() -> None:
+    """Лёгкая миграция без Alembic: добавляет недостающие колонки в таблицы.
+
+    create_all() создаёт только отсутствующие таблицы, но не новые колонки в уже
+    существующих. Здесь добавляем nullable-поля КБЖУ в fridge_items, чтобы не
+    терять данные на существующих БД (SQLite-файл, Postgres-том в Docker).
+    Тип FLOAT понимают и SQLite, и PostgreSQL.
+    """
+    inspector = inspect(engine)
+    if "fridge_items" not in inspector.get_table_names():
+        return  # таблицы ещё нет — её создаст create_all со всеми колонками
+    existing = {c["name"] for c in inspector.get_columns("fridge_items")}
+    for col in ("calories", "protein", "fat", "carbs"):
+        if col not in existing:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE fridge_items ADD COLUMN {col} FLOAT"))
 
 
 def get_db() -> Generator[Session, None, None]:

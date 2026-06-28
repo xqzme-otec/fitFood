@@ -20,25 +20,6 @@ directly below.
 - **Figma prototype / interface board:**
   <https://www.figma.com/board/6cUCM7YkJI9J1LYWwHXHiA/Welcome-to-FigJam?node-id=0-1&t=M2JLpoFtP0qwcno8-1>
 
-### Embedded prototype screenshots
-
-Key states and the main interaction flow, exported from the Figma board above:
-
-![Registration / sign-in screen](images/prototype-registration.png)
-*US-10 — registration / sign-in.*
-
-![Today view: daily KБЖУ summary](images/prototype-today-view.png)
-*US-03 — daily macronutrient tracking.*
-
-![Fridge inventory grouped by category](images/prototype-fridge.png)
-*US-01 / US-06 — fridge inventory with expiry badges.*
-
-![Receipt-scan confirmation flow](images/prototype-receipt-confirm.png)
-*US-01 — receipt scan → categorize → confirm before adding to fridge.*
-
-![Recipe recommendations screen](images/prototype-recipes.png)
-*US-02 — recipe suggestions scored by fridge coverage.*
-
 ## MVP v0
 
 - [MVP v0 report](mvp-v0-report.md) — foundation overview + repeatable smoke-check scenario.
