@@ -25,11 +25,34 @@
 - [QA: Implement Automated Quality Requirement Tests (QRT)](https://github.com/xqzme-otec/fitFood/issues/61)
 - [INFRA: Configure Additional QA Check](https://github.com/xqzme-otec/fitFood/issues/59)
 
-## Sprint 3
+
+
+
+## [Sprint 3](https://github.com/xqzme-otec/fitFood/milestone/3)
 **Dates:** 29 June 2026 - 05 July 2026
-**Sprint Goal:** Implement OCR receipt scanning and advanced analytics.
-**Focus:** Finalizing MVP v3 with advanced automation features for seamless data entry.
+**Sprint Goal:** Deliver the MVP v3 increment of the FitFood Tracker application, focusing on the implementation of smart LLM-based meal plan generation and receipt scanning functionality. Ensure transparency in the development process by introducing up-to-date architecture documentation (ADRs, diagrams) and improved configuration management.
+**Focus:** Delivering MVP v3, addressing previous customer feedback (UI contrast), establishing architecture documentation, and implementing the core LLM dietary generation strictly based on fridge inventory.
 **Planned Items:**
-* US-11: Expiration Date Tracking
-* US-15: Receipt Scanning OCR
-* US-18: Social Sharing & Community Plans
+* [[TECH] Implement LLM-Based Smart Meal Plan Generation](https://github.com/xqzme-otec/fitFood/issues/86)
+* [[TECH] Receipt Scanning with Expiry Dates](https://github.com/xqzme-otec/fitFood/issues/87)
+* [[TECH] Tinder-Style Recipe Selection and Regeneration UI](https://github.com/xqzme-otec/fitFood/issues/88)
+* [[BUG] UI/UX Contrast and Accessibility Fixes](https://github.com/xqzme-otec/fitFood/issues/85)
+
+
+### The Current Product Direction
+FitFood Tracker is evolving into an intelligent, highly automated dietary management system. The primary focus is shifting from manual data entry to smart automation, utilizing LLMs for personalized meal generation strictly based on available inventory, and automated data extraction via receipt scanning.
+
+### MVP v3 Scope and Justification
+The planned MVP v3 scope is directly justified by customer value and feedback. We prioritized the LLM-based smart generation (identified by the customer as the most complex and critical feature) and immediate UI contrast fixes (green-on-grey readability in Light Mode). To ensure high maintainability and that the work can be completed to the current Definition of Done, we are balancing new UI mechanics with architecture hardening and core data flows.
+
+### The Next Expected Increment or Sprint
+Following the current release, the next increment will focus on user engagement and advanced logic. Planned features include:
+* Advanced grocery list generation based on missing ingredients for desired recipes.
+* Deeper integration of user fitness goals and dynamic macro adjustments.
+* Further refinement of the meal selection UI.
+
+### Architecture, Quality, or Process Work That Must Continue Later
+Throughout future sprints, the team must continue to:
+* Keep architecture diagrams-as-code and ADRs up to date with new integrations.
+* Extend automated test coverage and quality requirement tests (QRT) for the evolving LLM and OCR modules.
+* Maintain clear configuration-management and development process documentation as the deployment model evolves.
