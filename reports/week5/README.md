@@ -10,3 +10,9 @@
 | **UI/UX Contrast:** Labels were hard to read due to poor color contrast. | [#85](https://github.com/xqzme-otec/fitFood/issues/85) | In Progress | Refactoring color palette to ensure WCAG-compliant contrast for input fields. |
 | **AI Recipe Generation Database:** Need to collect and analyze a comprehensive database for the full AI recipe generation process based on fridge contents, including detailed recipe views and full macronutrient (KBZHU) data. | Future Backlog | Deferred | Deferred to future backlogs. Current MVP focuses on the baseline generation algorithm and existing dataset. |
 | **Manual Input:** Request to allow manual entry of products or meals. | [#35](https://github.com/xqzme-otec/fitFood/issues/35) | Done | Implemented manual entry functionality for both products and meals to ensure flexible inventory tracking. |
+
+
+## Documentation
+* [Development Process & Configuration Management](../../docs/development-process.md)
+* [Roadmap](../../docs/roadmap.md)
+* [Definition of Done](../../docs/definition-of-done.md)
