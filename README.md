@@ -98,6 +98,11 @@ CI (GitHub Actions): `tests` (pytest + покрытие + порог по мод
 [`docs/testing.md`](docs/testing.md) и
 [`docs/quality-requirement-tests.md`](docs/quality-requirement-tests.md).
 
+
+
+## Процесс разработки и документация
+- [Development Process & Configuration Management](docs/development-process.md)
+
 ## Фронтенд
 
 SPA без сборки (vanilla JS, ES-модули), раздаётся самим FastAPI из `frontend/`.
