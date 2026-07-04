@@ -277,14 +277,27 @@ _DOMINANT_RU = {
 
 
 def _openrouter_chat(messages: list[dict], *, max_tokens: int = 200,
-                     temperature: float = 0.7) -> str | None:
+                     temperature: float = 0.7,
+                     reasoning_effort: str | None = None) -> str | None:
     """Один запрос к OpenRouter (OpenAI-совместимый chat/completions).
 
     Возвращает текст ответа или None при любой ошибке/отсутствии ключа —
     вызывающий код обязан иметь детерминированный фолбэк.
+
+    `reasoning_effort` ("low"/"medium"/"high") — для reasoning-моделей (gpt-oss
+    и т.п.): при "low" модель тратит меньше токенов на размышления, и ответ
+    успевает поместиться в `max_tokens`. Модели без reasoning игнорируют параметр.
     """
     if settings.llm_provider != "openrouter" or not settings.openrouter_api_key:
         return None
+    payload: dict = {
+        "model": settings.openrouter_model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if reasoning_effort:
+        payload["reasoning"] = {"effort": reasoning_effort}
     try:
         resp = httpx.post(
             f"{settings.openrouter_base_url}/chat/completions",
@@ -294,13 +307,8 @@ def _openrouter_chat(messages: list[dict], *, max_tokens: int = 200,
                 "X-Title": "FitFood",
                 "Content-Type": "application/json",
             },
-            json={
-                "model": settings.openrouter_model,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-            },
-            timeout=20.0,
+            json=payload,
+            timeout=40.0,
         )
         resp.raise_for_status()
         content = resp.json()["choices"][0]["message"]["content"]
@@ -459,6 +467,10 @@ def _instrumental(name: str) -> str:
     if len(name.split()) != 1:
         return name.lower()
     w = name.lower()
+    if w.endswith("ы"):        # помидоры → помидорами, огурцы → огурцами
+        return w[:-1] + "ами"
+    if w.endswith("и"):        # яблоки → яблоками, ягоды уже на «ы»
+        return w[:-1] + "ами"
     if w.endswith("а"):
         return w[:-1] + "ой"
     if w.endswith("я"):
@@ -472,40 +484,72 @@ def _instrumental(name: str) -> str:
     return w
 
 
-def _compose_dish(remaining, items: list) -> dict | None:
+# Продукты, которые НЕ должны становиться компонентом блюда в детерминированной
+# сборке (приправы, подсластители, жиры, сыпучка, вода) — ими готовят, но «Творог
+# с сахаром» или «Курица с маслом» как готовое блюдо звучат нелепо.
+_SEASONING_WORDS = (
+    "сахар", "соль", "перец", "специ", "приправ", "масло", "уксус", "мука",
+    "дрожж", "разрыхлит", "сода пищев", "ванил", "вода", "крахмал", "желатин",
+    "сироп", "подсласт", "лимонная кислота", "сахарн", "кунжут", "паниров",
+)
+
+
+def _is_seasoning(name: str) -> bool:
+    low = (name or "").lower()
+    return any(w in low for w in _SEASONING_WORDS)
+
+
+def _compose_dish(remaining, items: list, variant: int = 0) -> dict | None:
     """Детерминированно собирает осмысленное блюдо из холодильника + считает КБЖУ.
 
     Берёт по одному продукту на роль (белок + гарнир + овощ, либо молочка + фрукт),
     подгоняет суммарную порцию под остаток калорий на день и суммирует реальные
     КБЖУ продуктов. Возвращает None, если продуктов нет.
+
+    `variant` — номер варианта (растёт при свайпе ✗): выбирает другой продукт в
+    каждой роли (циклически), чтобы предлагать разные блюда из того же холодильника.
     """
     if not items:
         return None
 
-    by_role: dict[str, object] = {}
-    for it in items:
-        by_role.setdefault(_role_of(it), it)
+    # Приправы/подсластители/жиры/сыпучку в блюдо как компонент не выносим —
+    # это то, чем готовят, а не «звезда» тарелки (иначе получаются «Яйца с сахаром»).
+    usable = [it for it in items if not _is_seasoning(getattr(it, "name", "") or "")]
+    if not usable:
+        return None
 
-    # Подбираем связную тарелку: главный продукт + уместные гарниры.
-    chosen: list = []
-    if "protein" in by_role:
-        chosen = [by_role["protein"]]
-        if "carb" in by_role:
-            chosen.append(by_role["carb"])
-        if "veg" in by_role:
-            chosen.append(by_role["veg"])
-    elif "dairy" in by_role:
-        chosen = [by_role["dairy"]]
-        if "fruit" in by_role:
-            chosen.append(by_role["fruit"])
-        elif "veg" in by_role:
-            chosen.append(by_role["veg"])
-    elif "carb" in by_role:
-        chosen = [by_role["carb"]]
-        if "veg" in by_role:
-            chosen.append(by_role["veg"])
-    else:
-        chosen = [next(iter(by_role.values()))]
+    # Все продукты по ролям (для вариативности выбираем variant-й в каждой роли).
+    by_role_all: dict[str, list] = {}
+    for it in usable:
+        by_role_all.setdefault(_role_of(it), []).append(it)
+    roles_present = set(by_role_all)
+
+    # Кандидаты «тарелок» (наборов ролей) от сытных к простым. При свайпе ✗
+    # (variant растёт) берём следующий набор — так блюдо заметно меняется даже
+    # когда в каждой роли по одному продукту (курица+гречка+морковь → творог с
+    # черникой → гречка с морковью → …).
+    plate_templates = [
+        ("protein", "carb", "veg"), ("protein", "carb"), ("protein", "veg"),
+        ("dairy", "fruit"), ("carb", "veg"),
+        ("protein",), ("dairy",), ("carb",),
+    ]
+    plates: list[tuple[str, ...]] = []
+    seen: set[frozenset] = set()
+    for tpl in plate_templates:
+        key = frozenset(tpl)
+        if all(r in roles_present for r in tpl) and key not in seen:
+            plates.append(tpl)
+            seen.add(key)
+    if not plates:  # ни один шаблон не подошёл — просто первый доступный продукт
+        plates = [(next(iter(by_role_all)),)]
+
+    plate = plates[variant % len(plates)]
+
+    def pick(role: str):
+        opts = by_role_all[role]
+        return opts[variant % len(opts)]
+
+    chosen: list = [pick(r) for r in plate]
 
     roles = [_role_of(c) for c in chosen]
     base_grams = [_ROLE_DEFAULTS[r]["grams"] for r in roles]
@@ -530,6 +574,21 @@ def _compose_dish(remaining, items: list) -> dict | None:
     else:
         name = main.name
 
+    ingredients = [
+        {"name": c.name, "grams": g} for c, g in zip(chosen, grams)
+    ]
+    if sides:
+        method = (
+            f"Подготовьте {main.name.lower()} и " + ", ".join(s.name.lower() for s in sides)
+            + ". Обжарьте или отварите основной продукт до готовности, добавьте гарнир "
+            "и доведите вместе 3–5 минут. Посолите по вкусу."
+        )
+    else:
+        method = (
+            f"Подготовьте {main.name.lower()}, доведите до готовности отвариванием "
+            "или обжаркой. Посолите по вкусу."
+        )
+
     need = _dominant_need_local(remaining)
     if remaining.calories and remaining.calories > 0:
         reason = (
@@ -545,6 +604,8 @@ def _compose_dish(remaining, items: list) -> dict | None:
     return {
         "name": name[0].upper() + name[1:] if name else name,
         "reason": reason,
+        "method": method,
+        "ingredients": ingredients,
         "calories": round(cal, 1), "protein": round(pro, 1),
         "fat": round(fat, 1), "carbs": round(carb, 1),
         "grams": round(sum(grams), 1),
@@ -594,6 +655,121 @@ def invent_dish(remaining, items: list) -> dict | None:
         if parsed.get("reason"):
             det["reason"] = str(parsed["reason"]).strip()
     return det
+
+
+def _fridge_token_set(items: list) -> set[str]:
+    """Токены всех продуктов холодильника (для валидации ингредиентов LLM)."""
+    acc: set[str] = set()
+    for it in items:
+        acc |= {t for t in naming.clean_receipt_name(getattr(it, "name", "") or "").lower().split()
+                if len(t) > 2}
+    return acc
+
+
+def generate_ration(
+    remaining, items: list, recipes: list[dict],
+    exclude_names: set[str] | None = None,
+) -> dict | None:
+    """RAG-генерация блюда: холодильник + похожие рецепты каталога → блюдо.
+
+    `items` — FridgeItem пользователя. `recipes` — top-N рецептов каталога,
+    подобранных ретривером под холодильник (контекст-вдохновение); каждый:
+    {name, ingredients_text, method_text, calories, protein, fat, carbs}.
+    `exclude_names` — названия уже отвергнутых блюд (свайп ✗): предлагаем другой
+    вариант.
+
+    Возвращает {name, method, reason, ingredients:[{name, grams}]} или None,
+    если холодильник пуст. КБЖУ здесь НЕ считаем — их надёжнее пересчитать по
+    каталогу в вызывающем коде. Без ключа LLM отдаёт детерминированную сборку
+    (`_compose_dish`), уже содержащую ingredients и method.
+    """
+    excluded = exclude_names or set()
+    det = _compose_dish(remaining, items, variant=len(excluded))
+    if det is None:
+        return None
+    det = {
+        "name": det["name"], "reason": det["reason"],
+        "method": det.get("method", ""), "ingredients": det.get("ingredients", []),
+    }
+
+    fridge_names = [getattr(i, "name", "") for i in items if getattr(i, "name", "")]
+    context = "\n\n".join(
+        f"Рецепт «{r.get('name', '')}»:\n"
+        f"  ингредиенты: {_first_lines(r.get('ingredients_text', ''))}\n"
+        f"  приготовление: {_short(r.get('method_text', ''), 300)}"
+        for r in (recipes or [])[:5]
+    )
+    text = _openrouter_chat(
+        [
+            {"role": "system", "content": (
+                "Ты — шеф-повар FitFood. Тебе дают список продуктов из холодильника и "
+                "несколько РЕАЛЬНЫХ проверенных рецептов. Твоя задача — ВЫБРАТЬ ОДИН из этих "
+                "рецептов, который лучше всего готовится из имеющихся продуктов, и адаптировать "
+                "его: оставить ингредиенты, которые есть в холодильнике (плюс базовые — соль, "
+                "перец, масло, вода), а недостающие выкинуть. "
+                "СТРОГИЕ ПРАВИЛА: (1) блюдо должно быть кулинарно осмысленным и вкусным, как в "
+                "настоящей кухне; (2) НЕ придумывай странных сочетаний (например, сахар с "
+                "овощами/мясом, молоко с солёным); (3) НЕ смешивай сладкое и солёное; "
+                "(4) если хорошего блюда из продуктов не собрать — выбери самое простое "
+                "разумное (яичница, каша, салат, творог с фруктами). "
+                "Возвращай только JSON без markdown."
+            )},
+            {"role": "user", "content": (
+                f"Продукты в холодильнике: {', '.join(fridge_names[:25])}.\n"
+                f"Остаток КБЖУ на день: {remaining.calories:.0f} ккал, белок {remaining.protein:.0f} г, "
+                f"жиры {remaining.fat:.0f} г, углеводы {remaining.carbs:.0f} г.\n\n"
+                + (f"Рецепты-кандидаты (возьми ОДИН за основу):\n{context}\n\n" if context else "")
+                + (f"НЕ предлагай снова эти блюда: {', '.join(sorted(excluded))}. "
+                   "Возьми за основу ДРУГОЙ рецепт из списка.\n\n" if excluded else "")
+                + "Верни строго JSON: "
+                '{"name": str (название готового блюда), '
+                '"reason": str (1-2 предложения, чем полезно под остаток КБЖУ), '
+                '"method": str (краткие шаги приготовления), '
+                '"ingredients": [{"name": str (точно как в холодильнике), "grams": число}]}'
+            )},
+        ],
+        max_tokens=1400,
+        temperature=0.5,
+        reasoning_effort="low",
+    )
+    parsed = _safe_json(text) if text else None
+    if parsed and parsed.get("name") and isinstance(parsed.get("ingredients"), list):
+        fridge_tokens = _fridge_token_set(items)
+        clean_ings = []
+        for ing in parsed["ingredients"]:
+            nm = str(ing.get("name", "")).strip()
+            if not nm:
+                continue
+            toks = {t for t in nm.lower().split() if len(t) > 2}
+            if fridge_tokens and not (toks & fridge_tokens):
+                continue  # ингредиента нет в холодильнике — выкидываем
+            try:
+                grams = float(ing.get("grams") or 0)
+            except (TypeError, ValueError):
+                grams = 0.0
+            if grams <= 0:
+                grams = 100.0
+            clean_ings.append({"name": nm, "grams": round(grams, 1)})
+        if clean_ings:  # доверяем LLM только если что-то валидное осталось
+            det["name"] = str(parsed["name"]).strip()
+            det["ingredients"] = clean_ings
+            if parsed.get("reason"):
+                det["reason"] = str(parsed["reason"]).strip()
+            if parsed.get("method"):
+                det["method"] = str(parsed["method"]).strip()
+    return det
+
+
+def _first_lines(text: str, n: int = 8) -> str:
+    """Первые n непустых строк ингредиентов рецепта в одну строку (для промпта)."""
+    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+    return "; ".join(lines[:n])
+
+
+def _short(text: str, limit: int = 300) -> str:
+    """Сжатый однострочный фрагмент текста для промпта (обрезка по лимиту символов)."""
+    flat = " ".join((text or "").split())
+    return flat[:limit] + ("…" if len(flat) > limit else "")
 
 
 # --- Заглушки реальных провайдеров (реализуйте при наличии ключей) ---

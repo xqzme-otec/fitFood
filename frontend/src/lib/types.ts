@@ -226,11 +226,15 @@ export interface ReceiptItemConfirm {
 }
 
 export interface IngredientAvailability {
-  product_id: number;
+  product_id: number | null;
   name: string;
   grams_needed: number;
   available: boolean;
   note: string;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
 }
 
 export interface Recommendation {
@@ -251,8 +255,26 @@ export interface Recommendation {
 // Следующая карточка свайпа рациона (GET /rations/next).
 export interface RationNext extends Recommendation {
   source: "catalog" | "llm";
+  method: string;
   meal_slot_id: number;
   day_remaining: MacroSummary;
+}
+
+// Тело запроса «Съел это» для RAG-блюда (POST /rations/eat).
+export interface RationEatIngredient {
+  product_id: number | null;
+  name: string;
+  grams: number;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+}
+export interface RationEatIn {
+  meal_slot_id: number;
+  day?: string;
+  name?: string;
+  ingredients: RationEatIngredient[];
 }
 
 // --- Каталог рецептов (food.ru, см. app/routers/recipes.py) ---

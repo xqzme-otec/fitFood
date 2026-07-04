@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import re
 
-from app.models import FridgeItem
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from app.models import FridgeItem, Recipe
 from app.services import classifier
 
 # Меню рецептов: ключ (категория_запроса в CSV) -> человекочитаемое название.
@@ -92,3 +95,23 @@ def match_count(recipe_keys: str, fridge: set[str]) -> int:
     if not recipe_keys or not fridge:
         return 0
     return len(set(recipe_keys.split()) & fridge)
+
+
+def retrieve_matching(
+    db: Session, fridge_items: list[FridgeItem], limit: int = 6
+) -> list[Recipe]:
+    """RAG-retrieval: рецепты каталога, лучше всего совпадающие с холодильником.
+
+    Предварительно отсекаем по SQL (ingredient_keys содержит хотя бы один токен
+    холодильника), затем ранжируем в Python по числу совпавших ингредиентов.
+    Служат КОНТЕКСТОМ (вдохновением) для LLM, а не готовым ответом.
+    """
+    fridge = fridge_tokens(fridge_items)
+    if not fridge:
+        return []
+    conds = [Recipe.ingredient_keys.ilike(f"%{tok}%") for tok in fridge]
+    rows = db.query(Recipe).filter(or_(*conds)).all()
+    ranked = sorted(
+        rows, key=lambda r: match_count(r.ingredient_keys, fridge), reverse=True
+    )
+    return [r for r in ranked if match_count(r.ingredient_keys, fridge) > 0][:limit]

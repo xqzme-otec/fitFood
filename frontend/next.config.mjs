@@ -13,6 +13,7 @@ const API_PREFIXES = [
   "fridge",
   "receipts",
   "recommendations",
+  "rations",
   "health",
 ];
 

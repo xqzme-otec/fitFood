@@ -35,7 +35,7 @@ export default function RationSwiper({
   const [meals, setMeals] = useState<MealSlot[]>([]);
   const [mealIndex, setMealIndex] = useState(0);
   const [card, setCard] = useState<RationNext | null>(null);
-  const [excluded, setExcluded] = useState<number[]>([]);
+  const [excluded, setExcluded] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [exiting, setExiting] = useState<"" | "left" | "right">("");
@@ -44,7 +44,7 @@ export default function RationSwiper({
   const slot = meals[mealIndex];
 
   const fetchCard = useCallback(
-    async (slotId: number, exclude: number[]) => {
+    async (slotId: number, exclude: string[]) => {
       setLoading(true);
       try {
         const next = await api.rationNext(slotId, today, exclude);
@@ -109,8 +109,24 @@ export default function RationSwiper({
           entry_date: today,
         });
         toast(`Добавлено в «${slot.name}»`);
+      } else if (card.ingredients.length > 0) {
+        // RAG-блюдо: пишем каждый ингредиент в приём пищи отдельной записью.
+        await api.rationEat({
+          meal_slot_id: slot.id,
+          day: today,
+          name: card.name,
+          ingredients: card.ingredients.map((i) => ({
+            product_id: i.product_id,
+            name: i.name,
+            grams: i.grams_needed,
+            calories: i.calories,
+            protein: i.protein,
+            fat: i.fat,
+            carbs: i.carbs,
+          })),
+        });
+        toast(`Добавлено в «${slot.name}»`);
       } else {
-        // LLM-идея без рецепта в каталоге — залогировать структурно нечем.
         toast("Идея отмечена — добавьте вручную, если приготовите", "info");
       }
       onFinished();
@@ -122,17 +138,12 @@ export default function RationSwiper({
     }
   };
 
-  // Дизлайк — следующий вариант для этого же приёма.
+  // Дизлайк — другая ИИ-идея для этого же приёма (исключаем текущее блюдо).
   const dislike = () => {
     if (!card || busy) return;
-    if (card.dish_id) {
-      const nextExcluded = [...excluded, card.dish_id];
-      setExcluded(nextExcluded);
-      animate("left", () => slot && fetchCard(slot.id, nextExcluded));
-    } else {
-      // Каталог исчерпан (LLM-вариант) — пропускаем приём.
-      animate("left", goToNextMeal);
-    }
+    const nextExcluded = [...excluded, card.name];
+    setExcluded(nextExcluded);
+    animate("left", () => slot && fetchCard(slot.id, nextExcluded));
   };
 
   const skipMeal = () => animate("left", goToNextMeal);
@@ -245,12 +256,39 @@ export default function RationSwiper({
                 )}
               </Stack>
 
+              {card.ingredients.length > 0 && (
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                    Состав:
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                    {card.ingredients.map((ing, i) => (
+                      <Chip
+                        key={i}
+                        size="small"
+                        variant={ing.available ? "filled" : "outlined"}
+                        color={ing.available ? "default" : "warning"}
+                        label={`${ing.name} · ${num(ing.grams_needed)} г`}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {card.method && (
+                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-line" }}>
+                  <Box component="span" sx={{ fontWeight: 700 }}>Приготовление: </Box>
+                  {card.method}
+                </Typography>
+              )}
+
               {card.missing_ingredients.length > 0 && (
                 <Box
                   sx={(t) => ({
                     bgcolor: alpha(t.palette.warning.main, 0.12),
                     borderRadius: 2,
                     p: 1,
+                    mt: 1,
                     mb: 0.5,
                   })}
                 >
