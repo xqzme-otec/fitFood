@@ -100,7 +100,12 @@ CI (GitHub Actions): `tests` (pytest + покрытие + порог по мод
 
 
 
-## Процесс разработки и документация
+## Документация
+
+- **Hosted documentation site:** <https://xqzme-otec.github.io/fitFood/> — browsable
+  maintained docs (architecture, ADRs, quality, process), published from
+  [`docs/`](docs/) by [`.github/workflows/docs.yml`](.github/workflows/docs.yml).
+- [Architecture (views + ADRs)](docs/architecture/README.md)
 - [Development Process & Configuration Management](docs/development-process.md)
 
 ## Фронтенд
