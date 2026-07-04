@@ -4,6 +4,8 @@ This document defines the FitFood Tracker's architecture quality requirements fo
 
 Each requirement is verified by at least one automated Quality Requirement Test (QRT). QRT details, test locations, and CI evidence are tracked in [`docs/quality-requirement-tests.md`](quality-requirement-tests.md).
 
+Each requirement is also linked to at least one [Architecture Decision Record](architecture/adr/README.md) that explains the design decision supporting it; see [`docs/architecture/README.md`](architecture/README.md) for the maintained architecture documentation.
+
 Shared semantics for quality requirements and QRTs are defined in [Process Requirements](https://gitlab.pg.innopolis.university/swp_26/swp_26/-/blob/main/Process_Requirements.md#architecture-quality-requirements-and-quality-requirement-tests).
 
 ## Index
@@ -27,6 +29,8 @@ Shared semantics for quality requirements and QRTs are defined in [Process Requi
 
 **Traceability:** Related to US-03 (Daily Macronutrient Tracking), US-04 (Structured Dietary Plans). Implemented and verified in PR [#78](https://github.com/xqzme-otec/fitFood/pull/78).
 
+**Related architecture decision:** [ADR-0001 — Pure, side-effect-free nutrition (KBJU) domain module](architecture/adr/0001-pure-nutrition-domain.md).
+
 **Status: Implemented.**
 - [`app/services/nutrition.py`](../app/services/nutrition.py) implements `calc_bmr`, `calc_tdee`, `calc_targets`, `rescale_for_calories`.
 - Verified by [QRT-1](quality-requirement-tests.md#qrt-1--nutrition-correctness) — [`tests/test_qrt_nutrition.py`](../tests/test_qrt_nutrition.py), run as part of the `tests` CI workflow on every push and PR.
@@ -44,6 +48,8 @@ Shared semantics for quality requirements and QRTs are defined in [Process Requi
 
 **Traceability:** Related to US-03 (Daily Macronutrient Tracking), US-02 (Smart Recipe Recommendations). Implemented and verified in PR [#78](https://github.com/xqzme-otec/fitFood/pull/78).
 
+**Related architecture decisions:** [ADR-0002 — SQLite by default, environment-swappable to PostgreSQL](architecture/adr/0002-sqlite-default-swappable-postgres.md) and [ADR-0004 — A single process serves the API and the static frontend](architecture/adr/0004-single-process-api-and-static-frontend.md).
+
 **Status: Implemented.**
 - Covered code: the `/profile/targets`, `/diary/summary`, and `/recommendations` request paths (routers + services).
 - Verified by [QRT-2](quality-requirement-tests.md#qrt-2--api-latency) — [`tests/test_qrt_latency.py`](../tests/test_qrt_latency.py), run as part of the `tests` CI workflow on every push and PR.
@@ -60,6 +66,8 @@ Shared semantics for quality requirements and QRTs are defined in [Process Requi
 **Rationale:** Recipe recommendations are the product's headline feature. Non-deterministic output would make the feature impossible to trust or debug (the same fridge should always yield the same advice), and recommending a dish the user cannot actually cook with what they have would break the product's core promise. Both properties are about the system reliably meeting its specified behaviour under normal operation, which is why this is classified under Reliability rather than re-using Functional Suitability (already used by QR-1).
 
 **Traceability:** Related to US-02 (Smart Recipe Recommendations), US-01 (Adding Products to Inventory — fridge contents drive the match). Implemented and verified in PR [#78](https://github.com/xqzme-otec/fitFood/pull/78).
+
+**Related architecture decision:** [ADR-0003 — Provider-abstracted LLM/OCR with a deterministic mock fallback](architecture/adr/0003-llm-provider-abstraction-mock-fallback.md).
 
 **Status: Implemented.**
 - Covered code: [`app/services/recommendation.py`](../app/services/recommendation.py) (`recommend_dishes` and scoring helpers).
