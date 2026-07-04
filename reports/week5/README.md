@@ -13,6 +13,8 @@
 
 
 ## Documentation
+* **Hosted documentation site:** <https://xqzme-otec.github.io/fitFood/>
+* [Architecture (static / dynamic / deployment views + ADRs)](../../docs/architecture/README.md)
 * [Development Process & Configuration Management](../../docs/development-process.md)
 * [Roadmap](../../docs/roadmap.md)
 * [Definition of Done](../../docs/definition-of-done.md)
