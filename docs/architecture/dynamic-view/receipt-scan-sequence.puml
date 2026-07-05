@@ -1,0 +1,46 @@
+@startuml receipt-scan-sequence
+title FitFood — Dynamic View: Receipt scan -> confirm -> fridge
+
+skinparam shadowing false
+autonumber
+
+actor User
+participant "Frontend\n(Next.js)" as FE
+participant "receipts router" as R
+participant "receipt service" as SR
+participant "ocr service" as OCR
+participant "llm service" as LLM
+participant "classifier" as CLF
+participant "fridge service" as SF
+database "SQLite" as DB
+participant "LLM provider\n(external)" as EXT
+
+== Scan ==
+User -> FE : Upload receipt photo / paste text / scan QR
+FE -> R : POST /receipts/scan (JWT)
+R -> SR : process_receipt(user, image/text)
+SR -> OCR : extract raw text
+OCR --> SR : raw lines
+SR -> LLM : parse -> food items only\n(name, qty, expiry?)
+LLM -> EXT : chat completion\n(mock if no API key)
+EXT --> LLM : structured items
+LLM --> SR : parsed items (non-food filtered out)
+SR -> CLF : classify category per item
+CLF --> SR : category (or "discarded")
+SR -> DB : persist Receipt(status=pending) + positions
+SR --> R : ReceiptOut (positions for confirmation)
+R --> FE : 201 + positions (accepted / discarded)
+FE --> User : Review screen\n("soap - discarded, broccoli - vegetables ...")
+
+== Confirm ==
+User -> FE : Approve / edit items
+FE -> R : POST /receipts/{id}/confirm
+R -> SR : confirm_receipt(user, items)
+SR -> SF : add approved items to fridge\n(dedupe, expiry, category)
+SF -> DB : upsert fridge items
+SF --> SR : saved items
+SR --> R : fridge items
+R --> FE : 200 + fridge items
+FE --> User : Fridge updated
+
+@enduml

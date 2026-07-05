@@ -1,0 +1,59 @@
+site_name: FitFood Documentation
+site_description: Maintained documentation for the FitFood smart-fridge product
+site_url: https://xqzme-otec.github.io/fitFood/
+repo_url: https://github.com/xqzme-otec/fitFood
+repo_name: xqzme-otec/fitFood
+docs_dir: docs
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: default
+      primary: red
+      accent: red
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: red
+      accent: red
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
+
+nav:
+  - Home: index.md
+  - Roadmap: roadmap.md
+  - Development process: development-process.md
+  - Architecture:
+      - Overview: architecture/README.md
+      - Decision records:
+          - Index: architecture/adr/README.md
+          - ADR-0001 — Pure nutrition domain: architecture/adr/0001-pure-nutrition-domain.md
+          - ADR-0002 — SQLite default, swappable Postgres: architecture/adr/0002-sqlite-default-swappable-postgres.md
+          - ADR-0003 — LLM provider abstraction: architecture/adr/0003-llm-provider-abstraction-mock-fallback.md
+          - ADR-0004 — Single process API + frontend: architecture/adr/0004-single-process-api-and-static-frontend.md
+  - Quality:
+      - Quality requirements: quality-requirements.md
+      - Quality requirement tests: quality-requirement-tests.md
+      - Testing: testing.md
+      - Definition of Done: definition-of-done.md
+  - User stories: user-stories.md
+  - User acceptance tests: user-acceptance-tests.md
+  - Customer feedback: feedback-response.md

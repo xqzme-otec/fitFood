@@ -4,6 +4,8 @@ This document defines the shared minimum completion standard for all product wor
 
 **Updated for Assignment 4** with explicit quality-requirement-test, coverage, and testing-evidence criteria (see "Quality and testing requirements" below). These gates are maintained project assets: later Sprints must keep them passing or extend them, not bypass or disable them, per [`Assignment_04.md`](../Assignment_04.md#part-6-update-the-definition-of-done).
 
+**Updated for Assignment 5** with architecture-documentation and hosted-documentation criteria (see "Architecture and documentation requirements" below), reflecting the maintained architecture views/ADRs ([`docs/architecture/`](architecture/README.md)) and the documentation site workflow ([`.github/workflows/docs.yml`](../.github/workflows/docs.yml)) introduced this Sprint.
+
 ---
 
 ## Applicable to all PBIs (User Stories, Other PBIs, Bug Reports)
@@ -35,6 +37,17 @@ These criteria apply to implementation and supporting PBIs. They are maintained 
 - [ ] If the change touches a critical module, automated line coverage for that module stays at or above 30% (enforced by [`scripts/check_critical_coverage.py`](../scripts/check_critical_coverage.py) in the `tests` workflow), or a TA-approved exception is documented. The current critical modules and their measured coverage are tracked in [`docs/testing.md`](testing.md#critical-modules--coverage).
 - [ ] The additional QA check (Bandit static security analysis + pip-audit dependency audit, `qa` workflow) passes for the change.
 - [ ] Testing evidence (test output, the `coverage-xml` CI artifact, or a CI run link) is referenced in the MR description or in linked documentation, not only asserted.
+
+---
+
+## Architecture and documentation requirements (Assignment 5)
+
+These criteria apply to implementation and supporting PBIs. Like the gates above, they are maintained: if the architecture, deployment model, or documentation tooling changes in a later Sprint, update this section rather than letting it drift.
+
+- [ ] If the change affects the **architecture** (adds/removes a component or key relation, changes an important flow, or changes the deployment model), the relevant view under [`docs/architecture/`](architecture/README.md) (static, dynamic, or deployment) and its diagram-as-code source are updated in the same MR.
+- [ ] If the change makes or reverses a significant **architecture decision**, a new ADR is added under [`docs/architecture/adr/`](architecture/adr/README.md) (or the superseded ADR is marked), and the [quality-requirement ↔ ADR links](quality-requirements.md) stay consistent.
+- [ ] Maintained documentation affected by the change (e.g. [`docs/testing.md`](testing.md), [`docs/quality-requirements.md`](quality-requirements.md), [`docs/quality-requirement-tests.md`](quality-requirement-tests.md), [`docs/roadmap.md`](roadmap.md)) is updated in the same MR, not left stale.
+- [ ] For documentation changes, the hosted-docs build succeeds (`mkdocs build`, run by the [`docs`](../.github/workflows/docs.yml) workflow), so the published site stays valid.
 
 ---
 
