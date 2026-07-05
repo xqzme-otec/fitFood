@@ -281,16 +281,16 @@ Add screenshots to [`reports/week5/images/`](images/) and embed them here. Requi
 ![Sprint 3 Backlog board](images/sprint-3-backlog-board.png)
 
 **Latest protected-default-branch CI run**
-_TODO: `![CI run on main](images/ci-run-main.png)`_
+![CI run on main](images/ci-run-main.png)
 
 **SemVer release v3.0.0**
-_TODO: `![SemVer release v3.0.0](images/semver-release-v3.0.0.png)`_
+![SemVer release v3.0.0](images/semver-release-v3.0.0.png)
 
 **Example reviewed, issue-linked PR**
-_TODO: `![Reviewed PR](images/reviewed-pr.png)`_
+![Reviewed PR](images/reviewed-pr.png)
 
 **Hosted documentation site**
-_TODO: `![Hosted docs](images/hosted-docs.png)`_
+![Hosted docs](images/hosted-docs.png)
 
 ---
 
