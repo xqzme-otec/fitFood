@@ -178,7 +178,7 @@ Full UAT scenarios (UAT-01 through UAT-07) with execution history: [`docs/user-a
 
 ## 8. Release and Changelog
 
-- **SemVer release mapped to MVP v2:** _TODO: [v3.0.0](https://github.com/xqzme-otec/fitFood/releases/tag/v3.0.0) — create this release on GitHub_
+- **SemVer release mapped to MVP v2:** _TODO: [v0.2.0](https://github.com/xqzme-otec/fitFood/releases/tag/v0.2.0)
 - **CHANGELOG:** [`CHANGELOG.md`](../../CHANGELOG.md)
 
 _TODO: embed screenshot of the v3.0.0 release page once created._
