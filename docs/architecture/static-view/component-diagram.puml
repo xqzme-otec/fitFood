@@ -1,0 +1,78 @@
+@startuml component-diagram
+title FitFood — Static View (Component Diagram)
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultTextAlignment center
+left to right direction
+
+actor "User\n(browser)" as User
+
+package "External systems" {
+  cloud "LLM provider\n(OpenRouter / OpenAI / Ollama)" as LLM
+  cloud "FNS receipt API\n(proverkacheka.com)" as FNS
+}
+
+package "FitFood (single FastAPI process)" as App {
+
+  component "Frontend\n(Next.js static export)\nserved via StaticFiles" as Frontend
+
+  package "API layer (routers)" as API {
+    component "auth" as R_auth
+    component "profile" as R_profile
+    component "products" as R_products
+    component "meals / rations" as R_meals
+    component "fridge" as R_fridge
+    component "receipts" as R_receipts
+    component "recipes" as R_recipes
+    component "recommendations" as R_reco
+  }
+
+  package "Core" as Core {
+    component "security\n(JWT)" as C_sec
+    component "deps\n(auth guards)" as C_deps
+  }
+
+  package "Domain services" as Services {
+    component "nutrition\n(BMR / KBJU)\n[pure]" as S_nutrition
+    component "targets" as S_targets
+    component "recommendation" as S_reco
+    component "recipes" as S_recipes
+    component "fridge" as S_fridge
+    component "receipt" as S_receipt
+    component "ocr" as S_ocr
+    component "check_api" as S_check
+    component "llm\n(provider adapter\n+ mock)" as S_llm
+    component "classifier\n(product category)" as S_clf
+  }
+
+  package "Data layer" as Data {
+    component "SQLAlchemy models\n+ schemas" as Models
+    database "SQLite\n(fitfood.db)\n[env-swappable → Postgres]" as DB
+    component "seed\n(+ CSV catalog)" as Seed
+    artifact "ML model\n(xgb classifier)" as MLModel
+  }
+}
+
+User --> Frontend : HTTPS (same origin)
+Frontend --> API : REST / JSON (Bearer JWT)
+
+API --> Core : authenticate / authorize
+API --> Services : orchestrate use-cases
+Services --> Models : read / write
+Models --> DB : SQLAlchemy ORM
+Seed --> DB : startup seeding
+
+S_receipt --> S_ocr
+S_receipt --> S_llm
+S_receipt --> S_check
+S_receipt --> S_clf
+S_clf ..> MLModel : load
+S_reco --> S_recipes
+S_reco --> S_nutrition
+S_targets --> S_nutrition
+
+S_llm --> LLM : chat completion\n(key from .env; mock if absent)
+S_check --> FNS : QR lookup\n(token from .env; mock if absent)
+
+@enduml

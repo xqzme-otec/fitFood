@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Technical
+
+- Added maintained architecture documentation ([`docs/architecture/`](docs/architecture/README.md)): static (component), dynamic (receipt-scan sequence), and deployment views as diagrams-as-code (PlantUML) with rendered SVGs, plus four Architecture Decision Records (ADR-0001–0004), each linked to a Quality Requirement.
+- Published the maintained documentation as a hosted MkDocs site (`mkdocs.yml`, [`.github/workflows/docs.yml`](.github/workflows/docs.yml)) and linked it from the README and the Week 5 report.
+- Extended [`docs/definition-of-done.md`](docs/definition-of-done.md) with architecture-documentation, ADR, and hosted-docs gates for Assignment 5.
+
 ## [2.0.0] - 2026-06-28
 
 ### Added

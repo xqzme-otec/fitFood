@@ -29,3 +29,6 @@ Thumbs.db
 
 # Assignments
 Assignment_*.md
+
+# MkDocs build output
+site/

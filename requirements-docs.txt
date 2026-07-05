@@ -1,0 +1,3 @@
+# Dependencies for building the hosted documentation site (MkDocs).
+# Used by .github/workflows/docs.yml and for local previews (`mkdocs serve`).
+mkdocs-material==9.5.39
