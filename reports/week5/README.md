@@ -198,7 +198,7 @@ _TODO: embed screenshot of the v3.0.0 release page once created._
 
 _TODO: record a public sanitised demo video (< 2 minutes) showing MVP v2 — meal plan generation, receipt scanning, Tinder-style swipe UX — and paste the link here._
 
-Public sanitised demo video: _TODO: [Watch the FitFood MVP v2 Demo](LINK)_
+Public sanitised demo video: _TODO: [Watch the FitFood MVP v2 Demo](https://drive.google.com/file/d/17IFeMx42uU71SEzMl-SG7AHcuqdrpzSb/view?usp=sharing)_
 
 ---
 
