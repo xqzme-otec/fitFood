@@ -42,6 +42,11 @@ class ReceiptTextIn(BaseModel):
     text: str
 
 
+class ReceiptQrIn(BaseModel):
+    """Сырая строка QR-кода чека (t=...&s=...&fn=...&i=...&fp=...&n=...)."""
+    qrraw: str
+
+
 class ReceiptItemConfirm(BaseModel):
     item_id: int
     accepted: bool

@@ -33,15 +33,17 @@ Deliver a working product increment with a functional recipe database, fridge in
 
 ## UAT Execution Summary
 
-The customer executed the following scenarios during the session:
+The customer executed the following scenarios during the session. Scenario IDs are the stable
+IDs maintained in [`docs/user-acceptance-tests.md`](../../docs/user-acceptance-tests.md); see
+that document for full scenario steps and execution history across Sprints.
 
-| Scenario | Outcome | Notes |
-|---|---|---|
-| Register a new account and complete the profile form | **Passed** | Customer completed registration successfully with test data (goal: weight loss, target weight: 75 kg) |
-| Browse the recipe database and apply filters | **Passed** | Customer explored recipes; smart sort by fridge ingredients explained and demonstrated |
-| Add a meal to the daily plan manually | **Partially verified** | Feature confirmed as available; customer did not add products first so full flow not exercised |
-| View daily calorie breakdown | **Passed** | Customer confirmed the daily norm display is clear and correct |
-| Attempt to use meal plan generation | **Not available** | Feature not yet implemented; flagged as the top remaining priority |
+| ID | Scenario | Outcome | Notes |
+|---|---|---|---|
+| [UAT-01](../../docs/user-acceptance-tests.md#uat-01-register-and-set-up-a-goal-profile) | Register a new account and complete the profile form | **Passed** | Customer completed registration successfully with test data (goal: weight loss, target weight: 75 kg) |
+| [UAT-03](../../docs/user-acceptance-tests.md#uat-03-browse-and-filter-the-recipe-catalog) | Browse the recipe database and apply filters | **Passed** | Customer explored recipes; smart sort by fridge ingredients explained and demonstrated |
+| [UAT-04](../../docs/user-acceptance-tests.md#uat-04-add-a-recipe-to-todays-meal-plan-manually) | Add a meal to the daily plan manually | **Partially verified** | Feature confirmed as available; customer did not add products first so full flow not exercised |
+| [UAT-02](../../docs/user-acceptance-tests.md#uat-02-view-the-daily-kbju-calorie-and-macro-breakdown) | View daily calorie breakdown | **Passed** | Customer confirmed the daily norm display is clear and correct |
+| [UAT-05](../../docs/user-acceptance-tests.md#uat-05-generate-todays-meal-plan-automatically-from-the-fridge) | Attempt to use meal plan generation | **Not available** | Feature not yet implemented; flagged as the top remaining priority |
 
 ---
 
@@ -63,6 +65,31 @@ The customer executed the following scenarios during the session:
 | Expiry date parsing from receipts | Not done (in progress) |
 | Meal plan generation (LLM-based) | Not done — top remaining priority |
 | Swipe-based meal selection UX | Not done — requested for generation feature |
+
+---
+
+## Quality Requirements & Automated Test Evidence
+
+**Not covered live during the call** — the team's quality requirements were finalized after
+this session. They were instead shared with and discussed with the customer over Telegram
+following the call:
+
+- The team shared [`docs/quality-requirements.md`](../../docs/quality-requirements.md)
+  (QR-1 KBJU calculation correctness, QR-2 read-endpoint response time, QR-3 recommendation
+  determinism & ingredient validity) and asked the customer to confirm them.
+- The team showed that the corresponding CI gates pass: the `tests` workflow (pytest,
+  including the QRT-1/2/3 tests in
+  [`docs/quality-requirement-tests.md`](../../docs/quality-requirement-tests.md), coverage,
+  and the critical-module coverage threshold) and the `qa` workflow (Bandit + pip-audit).
+- The team and customer discussed which of these gates must remain mandatory going forward.
+
+**Outcome:** the customer approved QR-1/2/3 and the current CI gates as-is, with no
+requested changes.
+
+**Carried forward to the next Sprint Review:** present this same evidence live (QR-1/2/3,
+passing CI runs, the critical-module coverage table in
+[`docs/testing.md`](../../docs/testing.md)) so it is part of the recorded Sprint Review
+going forward, not only the post-call Telegram thread.
 
 ---
 
@@ -127,6 +154,7 @@ The customer executed the following scenarios during the session:
 | LLM token cost for background generation | Noted as acceptable for MVP; needs monitoring at scale |
 | UI contrast issue in input fields | Low effort to fix; should be addressed before next UAT |
 | Edge case: empty or near-empty fridge | User can't generate a plan — app must handle gracefully with a clear message |
+| Quality requirements/QRT evidence approved over Telegram, not in a recorded session | Customer approved QR-1/2/3 and current CI gates as-is post-call, but this approval is not yet captured in a recorded Sprint Review; present it live next time (see "Quality Requirements & Automated Test Evidence" above) |
 
 ---
 
@@ -141,6 +169,7 @@ The customer executed the following scenarios during the session:
 | 5 | Resolve external VM accessibility | Dev team / infrastructure | Customer could not connect from outside campus network |
 | 6 | Complete receipt scanner + expiry date parsing | Dev team | Foundation for inventory population; needed before generation works well |
 | 7 | Implement graceful handling for empty/sparse fridge | Dev team | Inform user when generation is not possible; motivate them to add products |
+| 8 | Present QR-1/2/3, QRT CI evidence, and critical-module coverage live at the next Sprint Review | Dev team | Already shared and approved over Telegram post-call; needs to be captured in a recorded session too |
 
 ---
 

@@ -1,0 +1,43 @@
+@startuml deployment-diagram
+title FitFood — Deployment View
+
+skinparam shadowing false
+skinparam node {
+  BackgroundColor #FDFDFD
+}
+
+actor "Customer\n(web browser)" as User
+
+node "VPS / Docker host" as Host {
+
+  node "app container\n(Dockerfile)" as AppNode {
+    artifact "FastAPI (uvicorn)\nlistens :8000" as Api
+    artifact "Next.js static export\n(frontend/out)\nserved by StaticFiles" as Static
+  }
+
+  node "db container\n(postgres:16-alpine)" as DbNode {
+    database "PostgreSQL" as PG
+  }
+
+  folder "named volume\npgdata" as Vol
+}
+
+cloud "LLM provider\n(OpenRouter / OpenAI / Ollama)" as LLM
+cloud "FNS receipt API\n(proverkacheka.com)" as FNS
+
+User --> Api : HTTPS :8000\n(API + SPA, same origin)
+Api ..> Static : serve UI
+Api --> PG : SQLAlchemy\n(DATABASE_URL)
+PG --> Vol : persist data
+Api ..> LLM : outbound HTTPS\n(key from env; mock if unset)
+Api ..> FNS : outbound HTTPS\n(token from env; mock if unset)
+
+note bottom of Host
+  docker compose up --build
+  * default dev run uses embedded SQLite (no db container)
+  * compose profile swaps in PostgreSQL via DATABASE_URL
+  * secrets (SECRET_KEY, OPENAI_API_KEY, CHECK_TOKEN)
+    injected as env vars, never baked into the image
+end note
+
+@enduml

@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
@@ -14,10 +15,13 @@ import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { alpha } from "@mui/material/styles";
-import UploadFileRoundedIcon from "@mui/icons-material/UploadFileRounded";
 import DocumentScannerRoundedIcon from "@mui/icons-material/DocumentScannerRounded";
+import QrCodeScannerRoundedIcon from "@mui/icons-material/QrCodeScannerRounded";
+import CameraAltRoundedIcon from "@mui/icons-material/CameraAltRounded";
 import DesignShell from "@/components/DesignShell";
+import CameraScanner from "@/components/CameraScanner";
 import { api } from "@/lib/api";
+import { decodeQrFromFile } from "@/lib/qr";
 import { useToast } from "@/lib/toast";
 import { FRIDGE_CATEGORIES, num } from "@/lib/format";
 import type { Receipt } from "@/lib/types";
@@ -32,24 +36,61 @@ const unitLabel = (u: string) => (u === "ml" ? "мл" : u === "pcs" ? "шт" : "
 // Маркер «не еда» — совпадает с DROPPED_CATEGORY на бэкенде (app/services/receipt.py).
 const DROPPED = "Отброшено (не еда)";
 
+// Ключи действий — чтобы показывать прогресс именно на нажатой кнопке.
+type Action = "text" | "qr-file" | "qr-text" | "confirm" | null;
+
+/** Текст этапа с «живой» анимированной троеточием — пользователь видит процесс. */
+function AnimatedStage({ text }: { text: string }) {
+  return (
+    <Box
+      component="span"
+      sx={{
+        "@keyframes fitfoodBlink": { "0%,80%,100%": { opacity: 0.2 }, "40%": { opacity: 1 } },
+        "& .dot": { animation: "fitfoodBlink 1.4s infinite both" },
+        "& .dot:nth-of-type(2)": { animationDelay: "0.2s" },
+        "& .dot:nth-of-type(3)": { animationDelay: "0.4s" },
+      }}
+    >
+      {text}
+      <span className="dot">.</span>
+      <span className="dot">.</span>
+      <span className="dot">.</span>
+    </Box>
+  );
+}
+
 function UploadCard({
   busy,
+  stage,
+  action,
   onScanText,
-  onScanImage,
+  onScanQr,
+  onScanQrImage,
 }: {
   busy: boolean;
+  stage: string | null;
+  action: Action;
   onScanText: (text: string) => void;
-  onScanImage: (file: File) => void;
+  onScanQr: (qrraw: string) => void;
+  onScanQrImage: (file: File) => void;
 }) {
-  const [tab, setTab] = useState<"text" | "image">("text");
+  const [tab, setTab] = useState<"text" | "qr">("text");
   const [text, setText] = useState("");
+  const [qr, setQr] = useState("");
+  const [camOpen, setCamOpen] = useState(false);
+
+  // Контент/иконка кнопки в зависимости от того, идёт ли её действие.
+  const label = (key: Action, fallback: ReactNode) =>
+    action === key && stage ? <AnimatedStage text={stage} /> : fallback;
+  const icon = (key: Action, normal: ReactNode) =>
+    action === key ? <CircularProgress size={18} color="inherit" /> : normal;
 
   return (
     <Card sx={{ maxWidth: 680 }}>
       <CardContent sx={{ p: 3 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2.5 }}>
           <Tab label="Текст чека" value="text" />
-          <Tab label="Фото чека" value="image" />
+          <Tab label="QR-код" value="qr" />
         </Tabs>
 
         {tab === "text" ? (
@@ -63,35 +104,58 @@ function UploadCard({
               fullWidth
             />
             <Stack direction="row" spacing={1.5}>
-              <Button variant="contained" size="large" startIcon={<DocumentScannerRoundedIcon />} disabled={busy} onClick={() => onScanText(text)}>
-                Распознать
+              <Button variant="contained" size="large" startIcon={icon("text", <DocumentScannerRoundedIcon />)} disabled={busy} onClick={() => onScanText(text)}>
+                {label("text", "Распознать")}
               </Button>
-              <Button color="inherit" onClick={() => setText(DEMO_TEXT)}>
+              <Button color="inherit" disabled={busy} onClick={() => setText(DEMO_TEXT)}>
                 Вставить пример
               </Button>
             </Stack>
           </Stack>
         ) : (
-          <Stack spacing={2} alignItems="flex-start">
-            <Box
-              sx={{
-                width: "100%",
-                border: "2px dashed",
-                borderColor: "divider",
-                borderRadius: 3,
-                py: 5,
-                display: "grid",
-                placeItems: "center",
-                textAlign: "center",
-                color: "text.secondary",
-              }}
-            >
-              <UploadFileRoundedIcon sx={{ fontSize: 40, mb: 1 }} />
-              <Typography variant="body2">Перетащите фото чека сюда или выберите файл</Typography>
-            </Box>
-            <Button component="label" variant="contained" size="large" startIcon={<UploadFileRoundedIcon />} disabled={busy}>
-              Загрузить фото чека
-              <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && onScanImage(e.target.files[0])} />
+          <Stack spacing={2} alignItems="stretch">
+            <Typography variant="body2" color="text.secondary">
+              Отсканируйте QR-код чека камерой или загрузите фото — получим реальный
+              состав покупки из базы ФНС. Можно вставить строку QR вручную.
+            </Typography>
+
+            {camOpen ? (
+              <CameraScanner
+                onDetected={(qrraw) => {
+                  setCamOpen(false);
+                  onScanQr(qrraw);
+                }}
+                onClose={() => setCamOpen(false)}
+              />
+            ) : (
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  startIcon={<CameraAltRoundedIcon />}
+                  disabled={busy}
+                  onClick={() => setCamOpen(true)}
+                >
+                  Сканировать камерой
+                </Button>
+                <Button component="label" variant="outlined" size="large" fullWidth startIcon={icon("qr-file", <QrCodeScannerRoundedIcon />)} disabled={busy}>
+                  {label("qr-file", "Загрузить фото QR")}
+                  <input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && onScanQrImage(e.target.files[0])} />
+                </Button>
+              </Stack>
+            )}
+
+            <Divider flexItem>или вставьте строку</Divider>
+            <TextField
+              value={qr}
+              onChange={(e) => setQr(e.target.value)}
+              placeholder="t=20230101T1200&s=703.10&fn=...&i=...&fp=...&n=1"
+              fullWidth
+              disabled={busy}
+            />
+            <Button variant="text" startIcon={icon("qr-text", <DocumentScannerRoundedIcon />)} disabled={busy} onClick={() => onScanQr(qr)} sx={{ alignSelf: "flex-start" }}>
+              {label("qr-text", "Получить чек по строке")}
             </Button>
           </Stack>
         )}
@@ -102,11 +166,14 @@ function UploadCard({
 
 function ReceiptContent() {
   const toast = useToast();
-  const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
+  const [action, setAction] = useState<Action>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [accepted, setAccepted] = useState<Record<number, boolean>>({});
   // Категория, выбранная пользователем (если ML определил неправильно).
   const [categories, setCategories] = useState<Record<number, string>>({});
+
+  const busy = stage !== null;
 
   const onScanned = (r: Receipt) => {
     setReceipt(r);
@@ -120,33 +187,46 @@ function ReceiptContent() {
     setCategories(initCat);
   };
 
-  const scanText = async (text: string) => {
+  // Прогоняет задачу, последовательно показывая этапы на кнопке (с анимацией).
+  // Этапы продвигаются по таймеру, пока ждём ответ — пользователь видит процесс.
+  const runStaged = async <T,>(act: Action, stages: string[], task: () => Promise<T>) => {
+    setAction(act);
+    setStage(stages[0]);
+    const timers = stages.slice(1).map((s, i) => window.setTimeout(() => setStage(s), (i + 1) * 1100));
+    try {
+      return await task();
+    } finally {
+      timers.forEach(clearTimeout);
+      setStage(null);
+      setAction(null);
+    }
+  };
+
+  const fail = (e: unknown) => toast(e instanceof Error ? e.message : "Ошибка", "error");
+
+  const scanText = (text: string) => {
     if (!text.trim()) return toast("Вставьте текст чека", "error");
-    setBusy(true);
-    try {
-      onScanned(await api.scanReceiptText(text));
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "Ошибка", "error");
-    } finally {
-      setBusy(false);
-    }
+    runStaged("text", ["Распознаю продукты", "Чищу названия"], async () => onScanned(await api.scanReceiptText(text))).catch(fail);
   };
 
-  const scanImage = async (file: File) => {
-    setBusy(true);
-    try {
-      onScanned(await api.scanReceiptImage(file));
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "Ошибка", "error");
-    } finally {
-      setBusy(false);
-    }
+  const scanQr = (qrraw: string) => {
+    if (!qrraw.trim()) return toast("Вставьте строку QR-кода", "error");
+    runStaged("qr-text", ["Получаю чек из ФНС", "Распознаю продукты", "Чищу названия"], async () =>
+      onScanned(await api.scanReceiptQr(qrraw.trim())),
+    ).catch(fail);
   };
 
-  const confirm = async () => {
+  // Фото QR декодируем в браузере (jsQR) и отправляем уже готовую строку.
+  const scanQrImage = (file: File) => {
+    runStaged("qr-file", ["Декодирую QR-код", "Получаю чек из ФНС", "Распознаю продукты", "Чищу названия"], async () => {
+      const qrraw = await decodeQrFromFile(file);
+      onScanned(await api.scanReceiptQr(qrraw));
+    }).catch(fail);
+  };
+
+  const confirm = () => {
     if (!receipt) return;
-    setBusy(true);
-    try {
+    runStaged("confirm", ["Добавляю в холодильник"], async () => {
       const items = receipt.items.map((it) => ({
         item_id: it.id,
         accepted: !!accepted[it.id],
@@ -157,11 +237,7 @@ function ReceiptContent() {
       setReceipt(null);
       setAccepted({});
       setCategories({});
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "Ошибка", "error");
-    } finally {
-      setBusy(false);
-    }
+    }).catch(fail);
   };
 
   // Смена категории. Перевод «Отброшено» -> реальная категория автоматически
@@ -185,11 +261,18 @@ function ReceiptContent() {
           Сканер чека
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          OCR + LLM выделят продукты, отбросят непродукты и предложат сроки годности
+          Текст или QR-код чека — выделим продукты, отбросим непродукты и предложим сроки годности
         </Typography>
       </Box>
 
-      <UploadCard busy={busy} onScanText={scanText} onScanImage={scanImage} />
+      <UploadCard
+        busy={busy}
+        stage={stage}
+        action={action}
+        onScanText={scanText}
+        onScanQr={scanQr}
+        onScanQrImage={scanQrImage}
+      />
 
       {receipt && (
         <Card>
@@ -251,10 +334,16 @@ function ReceiptContent() {
             </Stack>
 
             <Stack direction="row" spacing={1.5} sx={{ mt: 2.5 }}>
-              <Button variant="contained" size="large" onClick={confirm} disabled={busy || selectedCount === 0}>
-                Добавить выбранное ({selectedCount})
+              <Button
+                variant="contained"
+                size="large"
+                onClick={confirm}
+                disabled={busy || selectedCount === 0}
+                startIcon={action === "confirm" ? <CircularProgress size={18} color="inherit" /> : undefined}
+              >
+                {action === "confirm" && stage ? <AnimatedStage text={stage} /> : `Добавить выбранное (${selectedCount})`}
               </Button>
-              <Button color="inherit" onClick={() => setReceipt(null)}>
+              <Button color="inherit" disabled={busy} onClick={() => setReceipt(null)}>
                 Отмена
               </Button>
             </Stack>

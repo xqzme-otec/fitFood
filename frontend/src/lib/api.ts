@@ -186,6 +186,8 @@ export const api = {
     fd.append("file", file);
     return request<Receipt>("/receipts/scan", { method: "POST", body: fd });
   },
+  scanReceiptQr: (qrraw: string) =>
+    request<Receipt>("/receipts/scan-qr", { method: "POST", body: { qrraw } }),
   confirmReceipt: (id: number, items: ReceiptItemConfirm[]) =>
     request<FridgeItem[]>(`/receipts/${id}/confirm`, { method: "POST", body: { items } }),
 

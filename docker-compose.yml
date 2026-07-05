@@ -31,6 +31,9 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       SEED_PRODUCTS_LIMIT: ${SEED_PRODUCTS_LIMIT:-400}
+      # Проверка чека по QR (proverkacheka). Значение берётся из .env (см. CHECK_TOKEN).
+      CHECK_TOKEN: ${CHECK_TOKEN:-}
+      CHECK_URL: ${CHECK_URL:-https://proverkacheka.com/api/v1/check/get}
     ports:
       - "8000:8000"
     depends_on:

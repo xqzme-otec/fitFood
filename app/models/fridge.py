@@ -35,6 +35,14 @@ class FridgeItem(Base):
     expiry_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     price: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # Оценка КБЖУ на 100 г для продуктов БЕЗ привязки к каталогу (product_id is None):
+    # заполняется при добавлении через llm.estimate_macros. Если продукт каталога
+    # известен — эти поля не используются (КБЖУ берётся из Product).
+    calories: Mapped[float | None] = mapped_column(Float, nullable=True)
+    protein: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    carbs: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     added_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     product = relationship("Product")

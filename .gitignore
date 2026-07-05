@@ -6,6 +6,8 @@
 node_modules/
 vendor/
 __pycache__/
+.venv/
+venv/
 
 # Build
 dist/
@@ -27,3 +29,6 @@ Thumbs.db
 
 # Assignments
 Assignment_*.md
+
+# MkDocs build output
+site/

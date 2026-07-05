@@ -30,6 +30,30 @@ def test_duplicate_items_merge_quantity(client, profiled_headers):
     assert r.json()["quantity"] == 500  # 400 + 100 объединились
 
 
+def test_unmatched_item_still_gets_kbju(client, profiled_headers):
+    # Заведомо отсутствующий в каталоге продукт -> КБЖУ оценивается (не пустое).
+    r = client.post("/fridge/items", headers=profiled_headers,
+                    json={"name": "Марсианский деликатес", "quantity": 200, "unit": "g"})
+    assert r.status_code == 201, r.text
+    item = r.json()
+    assert item["product_id"] is None         # совпадения в каталоге нет
+    assert item["kbju_100g"] is not None       # но КБЖУ всё равно проставлено
+    assert set(item["kbju_100g"]) == {"calories", "protein", "fat", "carbs"}
+    # Для г/мл считается и общий КБЖУ на количество (200 г = ×2 от значения на 100 г).
+    assert item["kbju_total"] is not None
+    assert item["kbju_total"]["calories"] == round(item["kbju_100g"]["calories"] * 2, 1)
+
+
+def test_unmatched_item_pcs_has_no_total(client, profiled_headers):
+    # Для штук общий КБЖУ не считается (нельзя перевести шт в 100 г), но на 100 г — есть.
+    r = client.post("/fridge/items", headers=profiled_headers,
+                    json={"name": "Инопланетный снек", "quantity": 3, "unit": "pcs"})
+    assert r.status_code == 201, r.text
+    item = r.json()
+    assert item["kbju_100g"] is not None
+    assert item["kbju_total"] is None
+
+
 def test_list_and_grouped(client, profiled_headers):
     client.post("/fridge/items", headers=profiled_headers,
                 json={"name": "Куриное филе", "quantity": 500, "unit": "g"})

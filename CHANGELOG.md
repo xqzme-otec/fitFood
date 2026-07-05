@@ -1,5 +1,14 @@
 # Changelog
-## [Unreleased] - 2026-06-24
+
+## [Unreleased]
+
+### Technical
+
+- Added maintained architecture documentation ([`docs/architecture/`](docs/architecture/README.md)): static (component), dynamic (receipt-scan sequence), and deployment views as diagrams-as-code (PlantUML) with rendered SVGs, plus four Architecture Decision Records (ADR-0001–0004), each linked to a Quality Requirement.
+- Published the maintained documentation as a hosted MkDocs site (`mkdocs.yml`, [`.github/workflows/docs.yml`](.github/workflows/docs.yml)) and linked it from the README and the Week 5 report.
+- Extended [`docs/definition-of-done.md`](docs/definition-of-done.md) with architecture-documentation, ADR, and hosted-docs gates for Assignment 5.
+
+## [2.0.0] - 2026-06-28
 
 ### Added
 
@@ -14,6 +23,7 @@
 ### Fixed
 
 - Realigned fridge category emoji map with the merged `FridgeCategory` enum, fixing an app import crash in CI.
+- Corrected `.gitignore` configuration issues.
 
 ### Security
 
@@ -21,10 +31,11 @@
 
 ### Technical
 
-- Added automated Quality Requirement Tests (nutrition accuracy, API latency, recommendation determinism) under the `qrt` pytest marker; documented in [`docs/quality-requirement-tests.md`](docs/quality-requirement-tests.md).
+- Defined three Quality Requirements (QR-1 KBJU calculation correctness, QR-2 read-endpoint response time, QR-3 recommendation determinism & ingredient validity), each verified by an automated Quality Requirement Test (QRT-1/2/3) under the `qrt` pytest marker; documented in [`docs/quality-requirements.md`](docs/quality-requirements.md) and [`docs/quality-requirement-tests.md`](docs/quality-requirement-tests.md).
 - Expanded the automated test suite (recommendation scoring, classifier fallback, manual-macro recalculation, and a receipt→fridge→recommendation integration test) and documented the testing strategy in [`docs/testing.md`](docs/testing.md).
 - Added test-coverage measurement (`pytest-cov`) with a per-critical-module ≥30% gate ([`scripts/check_critical_coverage.py`](scripts/check_critical_coverage.py)) wired into the `tests` CI workflow.
 - Added a `qa` CI workflow running Bandit (static security analysis) and pip-audit (dependency CVE audit).
+- Updated [`docs/definition-of-done.md`](docs/definition-of-done.md) with explicit QRT, critical-module coverage, and testing-evidence gates.
 
 ## [1.0.0] - 2026-06-20
 
@@ -40,21 +51,3 @@
 
 - Configured GitHub Actions CI/CD workflow.
 - Added extended Pull Request and Issue templates.
-
-
-
-## [0.2.0] - 2026-06-27
-
-### Added
-- Recipe catalog with filters and a large dataset.
-- Direct meal logging feature with live nutrient preview.
-- Automated quality requirement tests and CI/CD pipeline.
-- Comprehensive unit and integration test suite.
-
-### Changed
-- Frontend fully rewritten for better maintainability.
-- Redesigned dashboard, fridge page, and navigation.
-- Updated documentation on quality requirements and testing strategy.
-
-### Fixed
-- Fridge category mapping and infrastructure configuration issues.

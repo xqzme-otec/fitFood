@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     openrouter_model: str = "meta-llama/llama-3.3-70b-instruct:free"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
+    # --- Проверка чека по QR (ФНС через proverkacheka.com) ---
+    # Токен держим только в .env, в репозиторий не коммитим. Если пуст —
+    # эндпоинт scan-qr работает в детерминированном мок-режиме (демо-чек).
+    check_token: str | None = None
+    check_url: str = "https://proverkacheka.com/api/v1/check/get"
+
     # --- ML-классификатор категорий продуктов ---
     ml_models_dir: Path = BASE_DIR / "notebooks" / "models"
 
