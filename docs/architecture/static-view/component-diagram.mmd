@@ -1,0 +1,45 @@
+graph TD
+    Browser(["Browser / Client\n(Next.js SPA)"])
+
+    subgraph System ["FitFood System"]
+
+        subgraph App ["FastAPI Application"]
+            direction TB
+
+            subgraph Routers ["API Routers"]
+                R["auth · profile · products\nfridge · meals · recipes\nreceipts · recommendations · rations"]
+            end
+
+            subgraph Services ["Service Layer"]
+                S_kbju["nutrition\nBMR / KBJU calc"]
+                S_targets["targets\nDaily limit logic"]
+                S_fridge["fridge\nFridge CRUD"]
+                S_rec["recommendation\nRecipe matching"]
+                S_pipeline["receipt pipeline\nocr → llm → classifier → naming"]
+                S_check["check_api\nQR receipt fetch"]
+            end
+
+            subgraph CoreLayer ["Core"]
+                C["security (JWT)\ndeps (DB session / auth guard)"]
+            end
+
+            subgraph ORM ["Models / ORM"]
+                M["User · Profile · FridgeItem\nMeal · Recipe · Receipt · Product"]
+            end
+        end
+
+        DB[("Database\nSQLite — dev\nPostgreSQL — prod")]
+        ML[("ML Models\nxgb_model.pkl\ntfidf_vectorizer.pkl\nlabel_encoder.pkl")]
+    end
+
+    LLM["☁ LLM Provider\nOpenAI / OpenRouter / Ollama / mock"]
+    FNS["☁ FNS Check API\nproverkacheka.com"]
+
+    Browser -->|"HTTP / static"| App
+    Routers -->|"delegates to"| Services
+    Routers -->|"uses"| CoreLayer
+    Services -->|"ORM queries"| ORM
+    S_pipeline -->|"local inference"| ML
+    S_pipeline -->|"HTTPS"| LLM
+    S_check -->|"HTTPS"| FNS
+    ORM -->|"SQL"| DB

@@ -8,22 +8,27 @@
 
 ## Table of Contents
 
-- [1. Scope Summary](#1-scope-summary)
-- [2. Customer Feedback Response](#2-customer-feedback-response)
-- [3. Product Backlog](#3-product-backlog)
-- [4. Sprint 2 Backlog](#4-sprint-2-backlog)
-- [5. Quality Requirements & Automated Testing](#5-quality-requirements--automated-testing)
-- [6. CI, Branch Protection & QA Checks](#6-ci-branch-protection--qa-checks)
-- [7. Release and Changelog](#7-release-and-changelog)
-- [8. Deployed Product & Access](#8-deployed-product--access)
-- [9. Demo Video](#9-demo-video)
-- [10. User Acceptance Testing](#10-user-acceptance-testing)
-- [11. Customer Review (Sprint Review)](#11-customer-review-sprint-review)
-- [12. Product Status](#12-product-status)
-- [13. Next Steps](#13-next-steps)
-- [14. Contribution Traceability](#14-contribution-traceability)
-- [15. Screenshots](#15-screenshots)
-- [16. Reports](#16-reports)
+- [FitFood Tracker — Week 4 Report (Assignment 4)](#fitfood-tracker--week-4-report-assignment-4)
+  - [Table of Contents](#table-of-contents)
+  - [1. Scope Summary](#1-scope-summary)
+  - [2. Customer Feedback Response](#2-customer-feedback-response)
+  - [3. Product Backlog](#3-product-backlog)
+  - [4. Sprint 2 Backlog](#4-sprint-2-backlog)
+  - [5. Quality Requirements \& Automated Testing](#5-quality-requirements--automated-testing)
+    - [Quality model](#quality-model)
+    - [Testing status](#testing-status)
+    - [Continuity into later Sprints](#continuity-into-later-sprints)
+  - [6. CI, Branch Protection \& QA Checks](#6-ci-branch-protection--qa-checks)
+  - [7. Release and Changelog](#7-release-and-changelog)
+  - [8. Deployed Product \& Access](#8-deployed-product--access)
+  - [9. Demo Video](#9-demo-video)
+  - [10. User Acceptance Testing](#10-user-acceptance-testing)
+  - [11. Customer Review (Sprint Review)](#11-customer-review-sprint-review)
+  - [12. Product Status](#12-product-status)
+  - [13. Next Steps](#13-next-steps)
+  - [14. Contribution Traceability](#14-contribution-traceability)
+  - [15. Screenshots](#15-screenshots)
+  - [16. Reports](#16-reports)
 
 ---
 
@@ -272,7 +277,6 @@ Each team member is expected to have pushed at least one commit, created at leas
 **Example reviewed, issue-linked PR**
 ![Reviewed PR](images/reviewed-pr.png)
 
-_TODO: capture and add the rest to [`images/`](images/), then embed here:_
 
 - Coverage report (e.g. the `coverage-xml` artifact or a terminal/HTML view)
 

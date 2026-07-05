@@ -1,0 +1,58 @@
+sequenceDiagram
+    actor User as User (Browser)
+    participant Router as FastAPI /receipts
+    participant ReceiptSvc as receipt service
+    participant OCR as ocr service
+    participant LLM as llm service
+    participant ExtLLM as LLM Provider
+    participant Clf as classifier service
+    participant Naming as naming service
+    participant DB as Database (ORM)
+    participant FridgeSvc as fridge service
+
+    Note over User,FridgeSvc: Step 1 — Upload receipt image
+
+    User->>Router: POST /receipts/scan (multipart image)
+    Router->>ReceiptSvc: process_receipt(db, user, image_bytes)
+
+    ReceiptSvc->>OCR: image_to_text(image_bytes)
+    Note right of OCR: mock → demo text<br/>real → pytesseract / Vision API
+    OCR-->>ReceiptSvc: raw_text
+
+    Note over User,FridgeSvc: Step 2 — LLM extracts food items
+
+    ReceiptSvc->>LLM: parse_receipt(raw_text)
+    LLM->>ExtLLM: POST /chat/completions<br/>(extract food items only)
+    ExtLLM-->>LLM: [{name, qty, unit, expiry_days}]
+    LLM-->>ReceiptSvc: parsed_items[]
+
+    Note over User,FridgeSvc: Step 3 — Classify and normalise each item
+
+    loop for each parsed item
+        ReceiptSvc->>Clf: predict_fridge_category(name)
+        Note right of Clf: XGBoost on TF-IDF features<br/>keyword fallback if confidence < 0.5
+        Clf-->>ReceiptSvc: FridgeCategory, confidence
+        ReceiptSvc->>Naming: normalize_name(raw_name)
+        Naming-->>ReceiptSvc: clean_name
+    end
+
+    Note over User,FridgeSvc: Step 4 — Save pending receipt and show confirmation list
+
+    ReceiptSvc->>DB: INSERT Receipt(status=pending, items_json)
+    DB-->>ReceiptSvc: receipt_id
+    ReceiptSvc-->>Router: ReceiptOut {receipt_id, items[], status=pending}
+    Router-->>User: 201 ReceiptOut (confirmation list shown)
+
+    Note over User,FridgeSvc: Step 5 — User confirms items to add to fridge
+
+    User->>Router: POST /receipts/{id}/confirm {item_ids:[...]}
+    Router->>FridgeSvc: add_items_from_receipt(db, user, receipt, item_ids)
+
+    loop for each confirmed item
+        FridgeSvc->>DB: INSERT FridgeItem(user_id, name, qty, category, expiry_date)
+    end
+
+    FridgeSvc->>DB: UPDATE Receipt(status=confirmed)
+    DB-->>FridgeSvc: ok
+    FridgeSvc-->>Router: [FridgeItemOut, ...]
+    Router-->>User: 200 [FridgeItemOut]
