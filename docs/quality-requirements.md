@@ -30,6 +30,7 @@ Shared semantics for quality requirements and QRTs are defined in [Process Requi
 **Status: Implemented.**
 - [`app/services/nutrition.py`](../app/services/nutrition.py) implements `calc_bmr`, `calc_tdee`, `calc_targets`, `rescale_for_calories`.
 - Verified by [QRT-1](quality-requirement-tests.md#qrt-1--nutrition-correctness) — [`tests/test_qrt_nutrition.py`](../tests/test_qrt_nutrition.py), run as part of the `tests` CI workflow on every push and PR.
+- Related architecture decision: the pure, stateless service-layer design described in [docs/architecture/README.md](architecture/README.md#static-view--component-diagram) is what makes exhaustive unit testing of this calculation practical.
 
 ---
 
@@ -47,6 +48,7 @@ Shared semantics for quality requirements and QRTs are defined in [Process Requi
 **Status: Implemented.**
 - Covered code: the `/profile/targets`, `/diary/summary`, and `/recommendations` request paths (routers + services).
 - Verified by [QRT-2](quality-requirement-tests.md#qrt-2--api-latency) — [`tests/test_qrt_latency.py`](../tests/test_qrt_latency.py), run as part of the `tests` CI workflow on every push and PR.
+- Related architecture decisions: [ADR-002](architecture/adr/ADR-002-local-ml-classifier.md) (local XGBoost keeps classification latency under 5 ms), [ADR-003](architecture/adr/ADR-003-recommendation-engine.md) (in-process matching avoids network hops on the hot path).
 
 ---
 
@@ -64,6 +66,7 @@ Shared semantics for quality requirements and QRTs are defined in [Process Requi
 **Status: Implemented.**
 - Covered code: [`app/services/recommendation.py`](../app/services/recommendation.py) (`recommend_dishes` and scoring helpers).
 - Verified by [QRT-3](quality-requirement-tests.md#qrt-3--recommendation-determinism--validity) — [`tests/test_qrt_recommendation_determinism.py`](../tests/test_qrt_recommendation_determinism.py), run as part of the `tests` CI workflow on every push and PR.
+- Related architecture decisions: [ADR-001](architecture/adr/ADR-001-llm-adapter-pattern.md) (mock fallback keeps CI deterministic; no LLM in the recommendation path), [ADR-003](architecture/adr/ADR-003-recommendation-engine.md) (pure function with stable sort — determinism is a structural property, not an enforcement).
 
 ---
 

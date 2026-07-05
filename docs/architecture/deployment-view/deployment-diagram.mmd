@@ -1,0 +1,34 @@
+graph TD
+    User(["👤 End User"])
+
+    subgraph Internet ["Internet (External Services)"]
+        LLM["☁ LLM Provider\nOpenAI / OpenRouter / Ollama"]
+        FNS["☁ FNS Proxy\nproverkacheka.com"]
+    end
+
+    subgraph VM ["University VM  10.93.26.202"]
+        subgraph Docker ["Docker Host"]
+            subgraph AppContainer ["app container  python:3.11-slim"]
+                Uvicorn["Uvicorn / FastAPI\n(port 8000)"]
+                Static["Next.js static export\n(served at /)"]
+                MLFiles[("ML model files\nxgb_model.pkl etc.")]
+            end
+
+            subgraph DBContainer ["db container  postgres:16-alpine"]
+                PG[("PostgreSQL 16\nfitfood database")]
+                PGVol[("pgdata volume\npersistent storage")]
+            end
+        end
+    end
+
+    subgraph DevLaptop ["Developer Laptop (local dev)"]
+        DevUvicorn["Uvicorn / FastAPI\n(uvicorn --reload)"]
+        SQLite[("SQLite\nfitfood.db")]
+    end
+
+    User -->|"HTTPS :8000\ncampus network only"| AppContainer
+    Uvicorn -->|"psycopg2 SQL\ninternal Docker network"| PG
+    PG --- PGVol
+    AppContainer -->|"HTTPS (if LLM_PROVIDER != mock)"| LLM
+    AppContainer -->|"HTTPS (QR lookup)"| FNS
+    DevUvicorn -->|"file I/O"| SQLite
