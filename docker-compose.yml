@@ -26,10 +26,16 @@ services:
       # ОБЯЗАТЕЛЬНО задайте свой ключ в проде (export SECRET_KEY=...).
       SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_super_secret_dev_key_0123456789}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
-      # LLM: mock | openai | ollama. Для openai передайте OPENAI_API_KEY.
+      # LLM: mock | openai | ollama | openrouter. Значения берутся из .env
+      # (compose подставляет ${...} из файла .env рядом с docker-compose.yml).
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      # OpenRouter (RAG-генерация рациона). БЕЗ этих строк ключ не попадает
+      # в контейнер и генерация тихо откатывается на детерминированный фолбэк.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       SEED_PRODUCTS_LIMIT: ${SEED_PRODUCTS_LIMIT:-400}
       # Проверка чека по QR (proverkacheka). Значение берётся из .env (см. CHECK_TOKEN).
       CHECK_TOKEN: ${CHECK_TOKEN:-}
