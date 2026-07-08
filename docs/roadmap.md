@@ -45,14 +45,24 @@ FitFood Tracker is evolving into an intelligent, highly automated dietary manage
 ### MVP v3 Scope and Justification
 The planned MVP v3 scope is directly justified by customer value and feedback. We prioritized the LLM-based smart generation (identified by the customer as the most complex and critical feature) and immediate UI contrast fixes (green-on-grey readability in Light Mode). To ensure high maintainability and that the work can be completed to the current Definition of Done, we are balancing new UI mechanics with architecture hardening and core data flows.
 
-### The Next Expected Increment or Sprint
-Following the current release, the next increment will focus on user engagement and advanced logic. Planned features include:
-* Advanced grocery list generation based on missing ingredients for desired recipes.
-* Deeper integration of user fitness goals and dynamic macro adjustments.
-* Further refinement of the meal selection UI.
 
-### Architecture, Quality, or Process Work That Must Continue Later
-Throughout future sprints, the team must continue to:
-* Keep architecture diagrams-as-code and ADRs up to date with new integrations.
-* Extend automated test coverage and quality requirement tests (QRT) for the evolving LLM and OCR modules.
-* Maintain clear configuration-management and development process documentation as the deployment model evolves.
+## [Sprint 4](https://github.com/xqzme-otec/fitFood/milestone/4) (Week 6)
+**Dates:** 06 July 2026 - 12 July 2026
+**Sprint Goal:** Produce a stable trial release of FitFood Tracker for the customer to try before the final transition, alongside a customer-facing documentation review and transition-readiness evidence.
+**Focus:** Finalizing current features, fixing critical bugs, and deploying the trial release.
+**Planned Items:**
+* [[BUG] Fix RAG system fallback: Prevent automatic switch to mock mode (#102)](https://github.com/xqzme-otec/fitFood/issues/102)
+* [[TECH] Enhance User Interface and UX for Week 6 Trial Release (#103)](https://github.com/xqzme-otec/fitFood/issues/103)
+* [[TECH] Deploy Week 6 Trial Release and configure CI/CD (#104)](https://github.com/xqzme-otec/fitFood/issues/104)
+
+## [Sprint 5](https://github.com/xqzme-otec/fitFood/milestone/5) (Week 7)
+**Dates:** 13 July 2026 - 19 July 2026
+**Sprint Goal:** Perform follow-up maintenance based on the customer's Week 6 trial feedback, finalize transition work, and deliver the final course version (MVP v3) of FitFood Tracker.
+**Focus:** Fixing bugs identified during the Week 6 customer UAT, finalizing the transition state, and preparing the public sanitized demo video and Demo Day presentation.
+**Planned Items:**
+* *Specific PBIs will be added following the Week 6 customer trial feedback.*
+* Finalize MVP v3 Release
+* Record and publish public sanitized demo video
+
+### Final Course Outcome (End of Course)
+By the end of the course (Week 7), FitFood Tracker will be finalized at **MVP v3**. The product will be delivered with a fully documented customer-handover state (`docs/customer-handover.md`), either ready for independent use or actively operated by the customer. All course-related development will freeze at this release.
