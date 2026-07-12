@@ -1,10 +1,20 @@
-# FitFood — умный холодильник (бэкенд)
+# FitFood — Smart Fridge Tracker
+
+**FitFood** is a web application for smart pantry management, personalised macronutrient tracking, and AI-powered meal planning. Users manage their fridge inventory, scan grocery receipts, log meals, and receive recipe recommendations based on what is actually available at home.
+
+| | |
+| --- | --- |
+| **Live product** | <http://10.93.26.202:8000/> |
+| **Hosted documentation** | <https://xqzme-otec.github.io/fitFood/> |
+| **Customer handover** | [docs/customer-handover.md](docs/customer-handover.md) |
+| **Contributor guide** | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| **Agent guide** | [AGENTS.md](AGENTS.md) |
+
+---
 
 Бэкенд на **FastAPI** для умного холодильника: аутентификация, расчёт КБЖУ,
 дневник питания, каталог продуктов/блюд, холодильник с распознаванием чеков
 (OCR + LLM, мок) и рекомендации рецептов.
-
-Deployed project http://10.93.26.202:8000/
 
 Проект запускается **без внешних ключей**: LLM и OCR работают в детерминированном
 мок-режиме, БД по умолчанию — SQLite. ML-классификатор категорий использует
