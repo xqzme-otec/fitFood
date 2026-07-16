@@ -41,7 +41,7 @@ No external service, vector index, or LLM call is involved in the recommendation
 **Negative / trade-offs:**
 - The function iterates over all recipes in Python. If the recipe catalogue grows to tens of thousands of dishes, this will become a bottleneck. At that scale, a pre-filtered SQL query or a vector index would be needed.
 - Ingredient matching is exact (by product name equality, normalised by `naming.py`). Semantic similarity (e.g. "куриное филе" ≈ "грудка куриная") is not captured — this can cause false negatives in fridge coverage scoring.
-- The lack of LLM-based personalisation means the recommendations do not adapt to user taste preferences beyond the KBJU budget. This is the customer's top requested improvement for Sprint 3 (see [customer-review-summary.md](../../reports/week4/customer-review-summary.md)).
+- The lack of LLM-based personalisation means the recommendations do not adapt to user taste preferences beyond the KBJU budget. This is the customer's top requested improvement for Sprint 3 (see [customer-review-summary.md](../../../reports/week4/customer-review-summary.md)).
 
 ## Alternatives considered
 

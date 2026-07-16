@@ -180,7 +180,7 @@ Full UAT scenarios with execution history: [`docs/user-acceptance-tests.md`](../
 
 ## 9. Release and Changelog
 
-- **Week 6 SemVer trial release:** _TODO: [vX.X.X](https://github.com/xqzme-otec/fitFood/releases/tag/vX.X.X) — Week 6 trial release for Assignment 6_
+- **Week 6 SemVer trial release:** [v3.0.0-trial](https://github.com/xqzme-otec/fitFood/releases/tag/v3.0.0-trial) — Week 6 Trial Release (Sprint 4) for Assignment 6
 - **CHANGELOG:** [`CHANGELOG.md`](../../CHANGELOG.md)
 
 _TODO: embed screenshot of the Week 6 release page from `reports/week6/images/` once created._
