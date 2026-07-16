@@ -206,7 +206,7 @@ Public sanitised demo video: _TODO: [Watch the FitFood MVP v2 Demo](https://driv
 
 _TODO: enable GitHub Pages (Settings → Pages → Source: `main`, folder `/docs`) and paste the URL here._
 
-Hosted documentation site: _TODO: [https://xqzme-otec.github.io/fitFood/](LINK)_
+Hosted documentation site: [https://xqzme-otec.github.io/fitFood/](https://xqzme-otec.github.io/fitFood/)
 
 ---
 

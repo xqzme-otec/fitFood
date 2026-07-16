@@ -29,4 +29,8 @@ jobs:
         run: bandit -r app -ll
 
       - name: pip-audit (dependency CVE audit)
-        run: pip-audit -r requirements.txt
+        # PYSEC-2026-1325 (ecdsa, transitive via python-jose): no patched
+        # release exists upstream as of this writing (latest is 0.19.2, the
+        # version already installed) — accepted as a known, currently
+        # unfixable risk rather than left silently failing CI.
+        run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2026-1325
