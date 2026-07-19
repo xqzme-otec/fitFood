@@ -126,6 +126,7 @@ Each scenario has a stable ID, a `Requirement status` (`Active` / `Retired`), tr
 | Week 4 (Sprint 2 Review) | **Not available** (feature not implemented) | [`reports/week4/customer-review-summary.md`](../reports/week4/customer-review-summary.md#uat-execution-summary) | Customer attempted to locate meal-plan generation; not yet built. Customer specified detailed requirements (3-meal MVP default, regeneration, Tinder-style swipe accept/reject UX, user-added recipes included in the pool). Confirmed as the **top priority for the next Sprint**. |
 | Week 5 (Sprint 3 Review) | **Partially passed** | [`reports/week5/sprint-review-summary.md`](../reports/week5/sprint-review-summary.md) | Generation works end-to-end — customer confirmed "I can see that generation is working — that's the most important thing I wanted to see." Output was repetitive with a small product set; no rejection memory yet. Customer tested with a larger product list and observed improved variety. Non-key ingredient threshold (< 50 g) approved. Gaps: no recipe detail link from generated meal, fridge quantity not deducted on "I ate this". |
 | Week 6 (Sprint 4 Review) | **Passed** | [`reports/week6/sprint-review-summary.md`](../reports/week6/sprint-review-summary.md) | Generation and Tinder-style swipe UI work perfectly. Customer is highly satisfied with the flow, requesting only minor polishing/adjustments for the recipe generation logic in Sprint 5. |
+| Week 7 (Final Transition) | **Passed** | [`reports/week7/README.md`](../reports/week7/README.md) | Customer confirmed final recipe generation logic on the live deployed instance. Minor polishing from Week 6 completed and accepted. |
 
 ---
 
@@ -152,6 +153,7 @@ Each scenario has a stable ID, a `Requirement status` (`Active` / `Retired`), tr
 |---|---|---|---|
 | Week 5 (Sprint 3 Review) | **Passed** (file upload path) | [`reports/week5/sprint-review-summary.md`](../reports/week5/sprint-review-summary.md) | File upload receipt scanning works end-to-end. For matched products, KBJU data comes from the product database; for unmatched products, LLM estimates KBJU — accepted by customer as a reasonable fallback. Webcam / QR scanning requires HTTPS and could not be tested in the local deployment; marked as partial gap, not a failure of the core flow. |
 | Week 6 (Sprint 4 Review) | **Passed with minor follow-up** | [`reports/week6/sprint-review-summary.md`](../reports/week6/sprint-review-summary.md) | The core scanning flow works. However, the customer noted occasional minor inaccuracies and small bugs in the parsed receipt data. Marked for minor polishing in Sprint 5. |
+| Week 7 (Final Transition) | **Passed** | [`reports/week7/README.md`](../reports/week7/README.md) | Minor bugs and inaccuracies in receipt parsing reported in Week 6 were fixed in Sprint 5. Customer accepted the final scanning flow. |
 
 ---
 
@@ -177,6 +179,7 @@ Each scenario has a stable ID, a `Requirement status` (`Active` / `Retired`), tr
 |---|---|---|---|
 | Week 5 (Sprint 3 Review) | **Partially passed** | [`reports/week5/sprint-review-summary.md`](../reports/week5/sprint-review-summary.md) | "I ate this" successfully logs the meal to the daily tracker and KBJU totals update correctly. **Gap:** fridge inventory is not yet updated — quantities are not deducted from the fridge after marking a meal as eaten. Customer confirmed this as the top remaining integration gap: "When the user marks a meal as eaten, you should deduct the consumed ingredient quantities from the fridge." Fixing this is Action Point #1 for Sprint 4. |
 | Week 6 (Sprint 4 Review) | **Passed** | [`reports/week6/sprint-review-summary.md`](../reports/week6/sprint-review-summary.md) | Customer confirmed all core tests passed successfully. The previous gap regarding fridge inventory deduction is resolved and everything works perfectly. |
+| Week 7 (Final Transition) | **Passed** | [`reports/week7/README.md`](../reports/week7/README.md) | Final verification during handover. Customer confirmed the feature works flawlessly on the global deployment without campus-network restrictions. |
 
 ---
 
