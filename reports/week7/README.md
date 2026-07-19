@@ -8,22 +8,29 @@
 
 ## Table of Contents
 
-- [1. Sprint 5 Overview](#1-sprint-5-overview)
-- [2. Week 7 Follow-Up and MVP v3 Changes](#2-week-7-follow-up-and-mvp-v3-changes)
-- [3. Final Transition Outcome](#3-final-transition-outcome)
-- [4. Customer Feedback Response (Sprint 5)](#4-customer-feedback-response-sprint-5)
-- [5. User Acceptance Testing (Week 7)](#5-user-acceptance-testing-week-7)
-- [6. Release and Changelog](#6-release-and-changelog)
-- [7. Deployed Product and Access](#7-deployed-product-and-access)
-- [8. Demo Video](#8-demo-video)
-- [9. Demo Day Preparation](#9-demo-day-preparation)
-- [10. Hosted Documentation](#10-hosted-documentation)
-- [11. Documentation Links](#11-documentation-links)
-- [12. Final Product Status](#12-final-product-status)
-- [13. Sprint Review](#13-sprint-review)
-- [14. Contribution Traceability](#14-contribution-traceability)
-- [15. Screenshots](#15-screenshots)
-- [16. Reports](#16-reports)
+- [FitFood Tracker — Week 7 Report (Assignment 6, Sprint 5 / MVP v3)](#fitfood-tracker--week-7-report-assignment-6-sprint-5--mvp-v3)
+  - [Table of Contents](#table-of-contents)
+  - [1. Sprint 5 Overview](#1-sprint-5-overview)
+  - [2. Week 7 Follow-Up and MVP v3 Changes](#2-week-7-follow-up-and-mvp-v3-changes)
+  - [3. Final Transition Outcome](#3-final-transition-outcome)
+    - [What was transferred or made available](#what-was-transferred-or-made-available)
+    - [Remaining limitations and follow-up items](#remaining-limitations-and-follow-up-items)
+    - [Customer independent use evidence](#customer-independent-use-evidence)
+    - [Customer acceptance statement (on record)](#customer-acceptance-statement-on-record)
+    - [`docs/customer-handover.md` acceptance](#docscustomer-handovermd-acceptance)
+  - [4. Customer Feedback Response (Sprint 5)](#4-customer-feedback-response-sprint-5)
+  - [5. User Acceptance Testing (Week 7)](#5-user-acceptance-testing-week-7)
+  - [6. Release and Changelog](#6-release-and-changelog)
+  - [7. Deployed Product and Access](#7-deployed-product-and-access)
+  - [8. Demo Video](#8-demo-video)
+  - [9. Demo Day Preparation](#9-demo-day-preparation)
+  - [10. Hosted Documentation](#10-hosted-documentation)
+  - [11. Documentation Links](#11-documentation-links)
+  - [12. Final Product Status](#12-final-product-status)
+  - [13. Sprint Review](#13-sprint-review)
+  - [14. Contribution Traceability](#14-contribution-traceability)
+  - [15. Screenshots](#15-screenshots)
+  - [16. Reports](#16-reports)
 
 ---
 
@@ -146,10 +153,10 @@ Full UAT scenarios: [`docs/user-acceptance-tests.md`](../../docs/user-acceptance
 
 ## 6. Release and Changelog
 
-- **Final SemVer release mapped to MVP v3:** _TODO: [vX.X.X](https://github.com/xqzme-otec/fitFood/releases/tag/vX.X.X)_
+- **Final SemVer release mapped to MVP v3:** _TODO: [v3.0.0](https://github.com/xqzme-otec/fitFood/releases/tag/v3.0.0)_
 - **CHANGELOG:** [`CHANGELOG.md`](../../CHANGELOG.md)
 
-_TODO: embed screenshot of the MVP v3 release page._
+![MVP v3 SemVer release](images/Screenshot%202026-07-19%20at%2023.56.38.png)
 
 ---
 
@@ -165,9 +172,8 @@ Deployment was resolved in Sprint 5. The application is now publicly accessible 
 
 ## 8. Demo Video
 
-_TODO: link to public sanitised demo video (< 2 minutes) showing MVP v3._
 
-Public sanitised demo video: _TODO_
+Public sanitised demo video: https://drive.google.com/file/d/1mH-joqC1L-T0CTf2n1cqGQSfRvODf6YD/view
 
 ---
 
@@ -267,7 +273,7 @@ Add screenshots to [`reports/week7/images/`](images/) and embed them here.
 ![Sprint 5 Backlog board](images/Screenshot%202026-07-19%20at%2015.06.41.png)
 
 **MVP v3 SemVer release**
-_TODO: add screenshot_
+![MVP v3 SemVer release](images/Screenshot%202026-07-19%20at%2023.56.38.png)
 
 **Example reviewed, issue-linked PR**
 ![Example reviewed, issue-linked PR](images/reviewed-pr.png)
