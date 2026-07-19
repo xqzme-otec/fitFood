@@ -12,8 +12,8 @@ This document outlines the final handover state of the FitFood Tracker product, 
 ## 2. Ownership, Access, and Infrastructure
 Transition scope as of final delivery — what is transferred/available to the customer versus what the team retains:
 
-* **Repository:** Hosted at [`xqzme-otec/fitFood`](https://github.com/xqzme-otec/fitFood) (public, MIT license). Full administrative rights and ownership of the repository have been transferred to the customer (Emil). The original student team members have been removed from the repository administration as per the transition agreement, leaving the customer in full control of the codebase.
-* **Service / Deployment:** The API + frontend + PostgreSQL stack is fully containerized via Docker Compose. The live instance has been successfully deployed and is now globally accessible, overcoming previous campus-network restrictions. The team has transferred all server management and hosting details to the customer.
+* **Repository:** Hosted at [`xqzme-otec/fitFood`](https://github.com/xqzme-otec/fitFood) (public, MIT license). Full administrative rights and ownership of the repository have been transferred to the customer (Emil). 
+* **Service / Deployment:** The API + frontend + PostgreSQL stack is fully containerized via Docker Compose. The live instance has been successfully deployed. The team has transferred all server management and hosting details to the customer.
 * **Account / Access:** Application-level access (registering a user account inside FitFood itself) is available to anyone who can reach the public URL. Host and server administrative access have been successfully handed over to the customer.
 
 ## 3. What the Product Does and How the Customer Uses It
