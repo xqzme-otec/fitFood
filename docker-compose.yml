@@ -26,10 +26,13 @@ services:
       # ОБЯЗАТЕЛЬНО задайте свой ключ в проде (export SECRET_KEY=...).
       SECRET_KEY: ${SECRET_KEY:-CHANGE_ME_super_secret_dev_key_0123456789}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
-      # LLM: mock | openai | ollama. Для openai передайте OPENAI_API_KEY.
+      # LLM: mock | openai | ollama | openrouter. Рабочий провайдер сейчас —
+      # openrouter (для openai реализованы только заглушки в app/services/llm.py).
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct:free}
       SEED_PRODUCTS_LIMIT: ${SEED_PRODUCTS_LIMIT:-400}
       # Проверка чека по QR (proverkacheka). Значение берётся из .env (см. CHECK_TOKEN).
       CHECK_TOKEN: ${CHECK_TOKEN:-}

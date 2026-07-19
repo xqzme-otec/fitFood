@@ -2,11 +2,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Wired `OPENROUTER_API_KEY` / `OPENROUTER_MODEL` through to the `app` service in `docker-compose.yml`. The OpenRouter LLM provider (real meal/ration generation, receipt-name normalization) worked when running via `uvicorn` directly, but silently fell back to the deterministic mock under Docker Compose because the container never received the key.
+
 ### Technical
 
 - Added maintained architecture documentation ([`docs/architecture/`](docs/architecture/README.md)): static (component), dynamic (receipt-scan sequence), and deployment views as diagrams-as-code (PlantUML) with rendered SVGs, plus four Architecture Decision Records (ADR-0001–0004), each linked to a Quality Requirement.
 - Published the maintained documentation as a hosted MkDocs site (`mkdocs.yml`, [`.github/workflows/docs.yml`](.github/workflows/docs.yml)) and linked it from the README and the Week 5 report.
-- Extended [`docs/definition-of-done.md`](docs/definition-of-done.md) with architecture-documentation, ADR, and hosted-docs gates for Assignment 5.
+- Extended [`docs/definition-of-done.md`](docs/definition-of-done.md) with architecture-documentation, ADR, and hosted-docs gates for Assignment 5, then with transition-readiness criteria for Assignment 6.
+- Added [`docs/customer-handover.md`](docs/customer-handover.md) documenting product ownership, access, configuration, and troubleshooting for the customer handover.
+- Fixed broken internal documentation links flagged by the `lychee` link-check CI job.
+- Accepted an unfixable `ecdsa` CVE (no upstream fix available) in the `pip-audit` CI gate as a documented, reviewed exception.
 
 ## [2.0.0] - 2026-06-28
 
