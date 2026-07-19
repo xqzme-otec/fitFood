@@ -153,7 +153,7 @@ Full UAT scenarios: [`docs/user-acceptance-tests.md`](../../docs/user-acceptance
 
 ## 6. Release and Changelog
 
-- **Final SemVer release mapped to MVP v3:** _TODO: [vX.X.X](https://github.com/xqzme-otec/fitFood/releases/tag/vX.X.X)_
+- **Final SemVer release mapped to MVP v3:** _TODO: [v3.0.0](https://github.com/xqzme-otec/fitFood/releases/tag/v3.0.0)_
 - **CHANGELOG:** [`CHANGELOG.md`](../../CHANGELOG.md)
 
 ![MVP v3 SemVer release](images/Screenshot%202026-07-19%20at%2023.56.38.png)
