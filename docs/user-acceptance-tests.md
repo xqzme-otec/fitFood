@@ -183,3 +183,11 @@ Each scenario has a stable ID, a `Requirement status` (`Active` / `Retired`), tr
 ## Maintenance
 
 If the product stack, screens, or this set of scenarios change in a later Sprint, update this document and the traceability links above instead of leaving stable IDs or execution history stale, per [`Assignment_04.md`](../Assignment_04.md#part-10-conduct-user-acceptance-testing-with-the-customer).
+
+
+| Week 7 (Final Transition) | **Passed** | [`reports/week7/README.md`](../reports/week7/README.md) | Customer confirmed final recipe generation logic on the live deployed instance. Minor polishing from Week 6 completed and accepted. |
+
+| Week 7 (Final Transition) | **Passed** | [`reports/week7/README.md`](../reports/week7/README.md) | Minor bugs and inaccuracies in receipt parsing reported in Week 6 were fixed in Sprint 5. Customer accepted the final scanning flow. |
+
+
+| Week 7 (Final Transition) | **Passed** | [`reports/week7/README.md`](../reports/week7/README.md) | Final verification during handover. Customer confirmed the feature works flawlessly on the global deployment without campus-network restrictions. |
