@@ -1,27 +1,20 @@
 # FitFood Tracker: Customer Handover Document
 
-This document outlines the current handover state of the FitFood Tracker product, providing the customer with necessary ownership, access, configuration, and troubleshooting details.
+This document outlines the final handover state of the FitFood Tracker product, providing the customer with necessary ownership, access, configuration, and troubleshooting details upon the conclusion of development.
 
-*Last reviewed: 2026-07-16 (Sprint 5 / Week 7, no state change yet since the Week 6 trial review).*
+*Last reviewed: 2026-07-19 (Final Delivery, MVP v3).*
 
 ## 1. Current Handover Status
-* **Handover Level:** **Ready for independent use** — the product is functionally complete for trial use and was demonstrated live to the customer, but the customer has not yet operated it independently, and it is not yet deployed on infrastructure the customer controls. (Not yet "Independently used by customer" or "Deployed or operated on customer side".)
-* **Current Blocker:** The live instance runs on a University IT VM reachable **only from the campus network**, so the customer cannot yet reach it independently outside that network. Resolving external access is the team's top Sprint 5 priority.
-* **Confirmation Status:** Accepted with follow-up items (Sprint 4 / Week 6 review).
-* **Transition Context:** The customer reviewed the product live, confirmed the core functionality (fridge management, receipt scanning, LLM meal generation, KBJU tracking) works and is satisfied with the outcome. Independent customer testing was deferred — the customer agreed to try it once externally reachable and send written feedback. The team will act on that feedback, resolve the deployment blocker, and finalize the handover during Sprint 5 (Week 7).
-* **Remaining actions before full transition (blocking):**
-  1. Resolve external deployment access (customer must reach the product without campus-network restrictions or local cloning).
-  2. Transfer or grant repository ownership/access to the customer.
-  3. Receive and act on the customer's written feedback from independent trial use.
-  4. Finalize and tag the MVP v3 release.
+* **Handover Level:** **Independently used by customer**. The product is functionally complete, was demonstrated live, and the customer has successfully operated it independently without the development team's intervention.
+* **Confirmation Status:** **Accepted**.
+* **Transition Context:** The customer reviewed and independently tested MVP v3, confirming that the core functionality (fridge management, receipt scanning, LLM meal generation, KBJU tracking) works and meets expectations. The provided handover documentation is accepted as sufficient for independent operation.
 
 ## 2. Ownership, Access, and Infrastructure
-Transition scope as of this review — what is already transferred/available to the customer versus what the team currently retains:
+Transition scope as of final delivery — what is transferred/available to the customer versus what the team retains:
 
-* **Repository:** Retained by the team, but already publicly readable. Hosted at [`xqzme-otec/fitFood`](https://github.com/xqzme-otec/fitFood) (public, MIT license) — the customer can already browse code and docs without an account. Write/admin ownership has **not** been transferred yet: the customer is not currently a repository collaborator. Planned for Sprint 5 (Week 7): add the customer as a collaborator, or transfer/fork the repository to their GitHub account.
-* **Service / Deployment:** Retained and operated by the team. The API + frontend + PostgreSQL stack runs via Docker Compose on a University IT Virtual Machine (IP `10.93.26.202`, port `8000`), provisioned and maintained by the team, not the customer.
-* **Account / Access:** Retained by the team. The customer has no login/SSH/hosting-account access to the deployment host. Application-level access (registering a user account inside FitFood itself) is available to anyone who can reach the URL.
-* **Important Access Note:** The live deployment is reachable **only from the university campus network**. For independent, globally-accessible use, the containers will need to move to a server the customer (or the team, on the customer's behalf) controls — this is the Sprint 5 top-priority action, not yet done.
+* **Repository:** Hosted at [`xqzme-otec/fitFood`](https://github.com/xqzme-otec/fitFood) (public, MIT license). Full administrative rights and ownership of the repository have been transferred to the customer (Emil). The original student team members have been removed from the repository administration as per the transition agreement, leaving the customer in full control of the codebase.
+* **Service / Deployment:** The API + frontend + PostgreSQL stack is fully containerized via Docker Compose. The live instance has been successfully deployed and is now globally accessible, overcoming previous campus-network restrictions. The team has transferred all server management and hosting details to the customer.
+* **Account / Access:** Application-level access (registering a user account inside FitFood itself) is available to anyone who can reach the public URL. Host and server administrative access have been successfully handed over to the customer.
 
 ## 3. What the Product Does and How the Customer Uses It
 FitFood is a smart-fridge / meal-planning web app. After registering and completing a short profile (sex, height, weight, age, activity level, goal), a user can:
@@ -30,7 +23,7 @@ FitFood is a smart-fridge / meal-planning web app. After registering and complet
 * Browse or auto-generate meals: the app either recommends catalog recipes that fit the fridge contents and remaining KBJU budget, or (when the catalog is exhausted) has an LLM invent a dish from what's on hand, with a swipe-to-accept/reject flow.
 * Log a meal as eaten to update the daily KBJU tracker.
 
-The customer accesses all of this through the web interface at the deployed URL (see §2) — no separate customer-side installation is required to use the app itself; installation instructions in §5 are for anyone who needs to run or redeploy the service.
+The customer accesses all of this through the web interface at the deployed URL — no separate customer-side installation is required to use the app itself; installation instructions in §5 are for anyone who needs to redeploy the service on their own infrastructure.
 
 ## 4. Configuration and Secrets Handling
 To run FitFood Tracker, the customer must configure specific environment variables. **Do not commit actual secret values to the repository.** A template is provided in `.env.example`. 
@@ -69,15 +62,15 @@ For normal operation, the customer and operators should refer to the following d
 * **[Hosted Documentation](https://xqzme-otec.github.io/fitFood/):** Full technical and architectural reference.
 
 **Common Troubleshooting:**
-* *QR Camera scanner doesn't work:* Browsers require HTTPS for camera access. Until SSL/HTTPS is configured on a customer's domain, use the "upload QR file" option instead.
+* *QR Camera scanner doesn't work:* Browsers require HTTPS for camera access. Make sure the domain is accessed via HTTPS; otherwise use the "upload QR file" option.
 * *Receipt returns fake/demo data:* Check if `CHECK_TOKEN` is correctly set in `.env`.
 * *AI doesn't explain recipes:* Check if `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY` are configured.
 
 ## 7. Known Limitations and Required Support
-The current documentation set is **sufficient for the currently reached handover level** ("Ready for independent use" / trial validation). It is **not yet sufficient** for a fully independent, customer-operated deployment — that needs the deployment/ownership blockers below resolved first. Known limitations:
-* **External deployment not resolved:** see §1/§2 — the only live instance is campus-network-only; there is no customer-reachable public URL yet.
-* **Fridge deduction is partial:** adding a dish straight to the diary from the recipe catalog (`AddFoodDialog`) deducts the used ingredients from the fridge. The auto-generated "swipe to accept a meal" flow (`/rations/next`, "I ate this") logs the meal to the daily KBJU tracker but does **not** yet deduct fridge quantities — this is an open gap, not a documentation error.
+The current documentation set is **sufficient for the currently reached handover level**. Because the course development phase has concluded, the product is delivered "as is" with the following known limitations:
+
+* **Fridge deduction is partial:** Adding a dish straight to the diary from the recipe catalog (`AddFoodDialog`) deducts the used ingredients from the fridge. The auto-generated "swipe to accept a meal" flow (`/rations/next`, "I ate this") logs the meal to the daily KBJU tracker but does **not** yet deduct fridge quantities.
 * **Web-based only:** There is no native mobile app; the UI is responsive for mobile browsers.
 * **No Push Notifications:** The system does not send active device alerts.
-* **Chestny Znak integration** (expiration dates by barcode) is not implemented; API access is still being investigated and may end up documented as a firm limitation rather than delivered.
-* **Remaining Team Support:** During Sprint 5 (Week 7) the team will resolve external deployment, transfer/grant repository access, act on the customer's written feedback, and finalize the MVP v3 release. Until then, the team remains responsible for hosting, maintenance, and bug fixes.
+* **Chestny Znak integration:** Expiration dates by barcode are not implemented.
+* **Team Support Conclusion:** The academic course has ended with the delivery of MVP v3. The development team will no longer provide active hosting, maintenance, or bug fixes. The customer has assumed full operational responsibility for the current deployment and future updates.
